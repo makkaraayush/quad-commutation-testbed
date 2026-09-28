@@ -71,10 +71,15 @@ I've been working on a safe anchor setup using nylon ropes to prevent the drone 
 - *Problem:* While better, there was still a slight possibility of the propellers striking them during a hard tilt.
 - ![Anchor Step 2](../assets/testbed/anchor_step_2_5kg_split.jpeg)
 
-**Step 3: The Suitcase (Final Setup)**
+**Step 3: The Initial Suitcase Platform**
 - I placed a suitcase directly under the drone and placed the dumbbells *outside* alongside it. 
 - *Result:* This totally eliminated the risk of propeller strikes! When the drone lifts, the anchor allows for a little more than 7 inches of vertical lift. This is the perfect "goldilocks" zone—high enough to test hovering, but low enough to prevent major instability or bad tuning issues from causing a crash.
 - ![Anchor Step 3](../assets/testbed/anchor_step_3_suitcase.jpeg)
+
+**Step 4: Bigger Suitcase & Quick-Release Hooks**
+- *The Platform:* Switching to a bigger suitcase because the previous one wasn't wide enough for all four arm corners to rest completely flat.
+- *Rope Adjustments:* Because this new suitcase is taller/higher, I am increasing the rope length slightly to maintain the optimal vertical travel window.
+- *Quick Attachment:* Integrating removable hooks on the tether lines instead of manually tying and untying knots every time—now I can just hook and unhook the corners in seconds.
 
 ---
 
