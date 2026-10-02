@@ -1,79 +1,71 @@
-# Test 01: Hardware Check & Motor Commutation (Strapped)
+# Test 01: Arming & Motor Check (Strapped Hardware Test)
 
 **Date:** October 3, 2026  
-**Status:** Completed & Passed (Hardware 100% Functional; PIDs Require 500mm Tuning)  
-**Setup:** Fully Strapped to Suitcase Anchor Testbed  
+**Result:** Passed (Hardware is solid, stock PIDs are way too aggressive)  
+**Setup:** Strapped flat to the suitcase anchor testbed  
 
 ---
 
-## 🎯 Test Objective & Scope
-* **Primary Goal:** Verify arming sequence, motor startup synchronization, and live commutation under battery power after the recent ESC replacement on Motor 4.
-* **Method:** Live tethered run with the drone strapped down tightly to the suitcase testbed platform. No untethered flight was attempted to ensure 100% safety during hardware verification.
-* **Whiteboard Briefing:**
-  * **Goal:** Arming & Motor Check
-  * **Description:** Hardware check while strapped
+## Why I Did This Test
+After replacing the fried ESC on Motor 4 and redoing the solder joints, I needed to make sure all four motors would actually start up and behave under real battery power with propellers attached. 
+
+Because my last untethered test ended with shattered props against a wall, I made sure the drone was strapped down completely flat to the suitcase anchor platform before flipping the arm switch. No flying allowed here—just pure hardware verification to see if the ESCs sync up and the motors spin the right way without anything catching fire.
 
 ---
 
-## 🛠️ Hardware Stack (Bench Configuration)
-As recorded on the test whiteboard:
+## The Whiteboard Breakdown
+Here is everything I wrote on the whiteboard for this session:
 
-| Component | Specification | Notes |
-| :--- | :--- | :--- |
-| **Frame** | TBS 500 (Clone) | 500mm diagonal wheelbase |
-| **Flight Controller** | DakeFPV F405 | STM32F405 running target `DAKEFPVF405` |
-| **ESCs** | 4x 30A Analog | SimonK / BLHeli; +5V BEC wires clipped/disconnected to isolate FC power |
-| **Motors** | 4x 2212 1000KV | Sensorless brushless outrunners |
-| **Battery** | 3S 2200mAh LiPo | Direct XT60 connection |
-| **Radio Link** | FlySky FS-i6 TX / FS-iA6B RX | Serial i-BUS protocol on UART2 |
-| **Propellers** | 10-inch (1045) | Standard pitch quad-X configuration |
-| **GPS / Compass** | None | Disabled for lean bench testing |
-
----
-
-## ⚙️ Firmware & Tuning Profile
+* **Goal:** Arming & Motor Check
+* **Description:** Hardware check while strapped
+* **Hardware Stack:**
+  * Frame: TBS 500 (Clone)
+  * FC: DakeFPV F405 (flashed with DAKEFPVF405)
+  * ESCs: 30A Analog (SimonK/BLHeli, +5V BEC wire disconnected)
+  * Motors: 4x 2212 1000KV brushless
+  * Battery: 3S 2200mAh LiPo
+  * Radio: FlySky FS-i6 TX with FS-iA6B RX (i-BUS over UART2)
+  * Propellers: 10-inch
+  * GPS: None
 * **Firmware:** Betaflight 4.4+
-* **Tuning Profile:** Stock Default 5-inch Miniquad Preset
-
-![Stock PID Preset](test_01_stock_pid_preset.png)
-
-### Stock PID Controller Values
-* **Roll:** P: `45` | I: `80` | D: `30` | D Max: `40` | Feedforward: `120`
-* **Pitch:** P: `47` | I: `84` | D: `34` | D Max: `46` | Feedforward: `125`
-* **Yaw:** P: `45` | I: `80` | D: `0` | D Max: `0` | Feedforward: `120`
-* **Master Multiplier:** `1.00`
-* **Feedforward Settings:** Jitter Reduction: `7`, Smoothness: `65`, Averaging: `2 Point`, Boost: `15`, Max Rate Limit: `90`
-* **Anti-Gravity:** Enabled (Gain: `8.0`)
-* **TPA:** Mode `D`, Rate `65%`, Breakpoint `1350µs`
+* **Tuning:** Stock
 
 ---
 
-## 📹 Video Recording & Analysis
-* **Video File:** [Test 01 Video Recording](test_01_hardware_check_strapped.mp4)
+## The Tuning Preset I Used
 
-### Video Walkthrough & Observations
-1. **Anchor Platform Rig:**
-   * The 500mm quad is securely strapped flat to the suitcase anchor base using heavy-duty nylon tethers and weights, completely preventing propeller strike hazards.
-2. **Arming Sequence:**
-   * Operator powers the FlySky FS-i6 transmitter and toggles the dedicated arm switch (AUX 1).
-   * All four motors wake up and spin up simultaneously into smooth idle without hesitation, stutter, or synchronization lag.
-3. **Motor 4 ESC Validation:**
-   * Motor 4 spins freely and cleanly in full synchronization with Motors 1–3, proving that the previous shorted MOSFET and electromagnetic drag issue is completely resolved.
-4. **Throttle Ramp & Commutation:**
-   * Operator gently advances the throttle. The acoustic profile is crisp and uniform across all four quadrants with healthy commutation.
-5. **Attitude Command Check:**
-   * Small roll and pitch stick inputs were pulsed to confirm directional differential thrust. The motors modulated thrust correctly in response to transmitter commands.
-6. **PID Aggression on Large Frame:**
-   * **Observation:** The control loop exhibits noticeable aggression and motor RPM hunting when throttled up.
-   * **Root Cause:** Stock Betaflight PIDs are tuned for lightweight (~600g–700g) 5-inch miniquads with high-KV motors and very low rotational inertia. A 500mm frame swinging heavy 10-inch props has significantly higher angular inertia. When strapped down, the gyro detects no angular rate change despite high motor output, causing the stock P and D terms to wind up aggressively.
-7. **Disarm & Safety:**
-   * The operator toggled the disarm switch; all motors stopped instantaneously. Failsafe and disarm responsiveness were 100% verified.
-   * Session ended with an affirmative thumbs-up from the operator.
+Here is the exact PID profile I had loaded during this test:
+
+![Stock Betaflight PID Preset](test_01_stock_pid_preset.png)
+
+These are literally the default out-of-the-box Betaflight settings made for standard 5-inch freestyle quads:
+* Roll: P: 45 | I: 80 | D: 30 | D Max: 40 | Feedforward: 120
+* Pitch: P: 47 | I: 84 | D: 34 | D Max: 46 | Feedforward: 125
+* Yaw: P: 45 | I: 80 | D: 0 | Feedforward: 120
+* Master Multiplier: 1.00
+* Feedforward Boost: 15, Max Rate Limit: 90
+* Anti-Gravity: Enabled (Gain 8.0)
+
+I left these stock on purpose just to see how the hardware would react before applying my own custom multipliers.
 
 ---
 
-## 📋 Outcomes & Next Steps
-* [x] **Motor Commutation:** PASSED — all 4 motors spin cleanly and synchronously.
-* [x] **Motor 4 ESC Replacement:** PASSED — zero drag, normal temperatures.
-* [x] **Radio Link & Failsafe:** PASSED — reliable i-BUS link and instant disarm.
-* [ ] **PID Calibration for 500mm Frame:** PENDING — apply custom low-gain PID multipliers (`p_gain_multiplier = 50`, `d_gain_multiplier = 50`, `feedforward_multiplier = 0`, `gyro_filter_multiplier = 80`) from `cli_dump.txt` to eliminate aggression before tethered hover tests.
+## What Happened in the Test Video
+
+You can watch the full uncut test clip here: [Test 01 Video Recording](test_01_hardware_check_strapped.mp4)
+
+Here is the play-by-play of how it went down:
+
+1. **The Testbed:** The drone was strapped firmly onto the top of the suitcase with the weights sitting safely outside the prop arcs. It was locked down tight with zero room to lift or tilt.
+2. **Arming:** Powered up the FlySky transmitter and flipped the arm switch (AUX 1). All four motors woke up instantly and spun up into idle together. No stutter, no desync, and no hesitation.
+3. **Motor 4 Check:** The newly soldered ESC on Motor 4 worked like a charm. The weird electromagnetic brake and shorted MOSFET issue from before is completely gone. It spun freely and stayed cool.
+4. **Throttle & Stick Response:** I slowly raised the throttle stick to check motor spool-up. The sound was clean and all four quadrants produced balanced thrust. Wiggling the pitch and roll sticks confirmed that the flight controller was sending differential commands properly.
+5. **Why the motors were surging so hard:** In the video, you can clearly hear the motors revving up and hunting aggressively when throttle is applied. That is because these stock Betaflight PIDs are meant for tiny 600g 5-inch quads that snap around instantly. On a heavy 500mm frame swinging big 10-inch props, the inertia is huge. Because the drone was strapped down and could not actually move, the gyro saw zero tilt and the PID loop kept winding up harder and harder trying to force it to level. It proves beyond doubt that stock 5-inch tuning is way too aggressive for this frame.
+6. **Disarm:** Flipped the disarm switch, and all four motors stopped instantly. Total test lasted about a minute, followed by a well-deserved thumbs up!
+
+---
+
+## What I Learned & What's Next
+* **Hardware:** 100% good to go. The board, receiver link, failsafe, and all four ESCs/motors are working properly.
+* **Tuning:** I definitely cannot fly it with stock 5-inch PIDs. I need to flash the custom low-gain profile from my CLI dump (cutting P and D in half, killing feedforward, and smoothing out the gyro filters).
+* **Next Test:** Once the custom PIDs are loaded, I'll move to Test 02 on a tether that allows about 7 inches of vertical lift to see how it hovers.

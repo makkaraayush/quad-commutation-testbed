@@ -1,42 +1,31 @@
-# Quadcopter Commutation & Flight Testing Logs
+# My Flight & Bench Testing Logs
 
-Welcome to the live test repository for the custom 500mm quadcopter testbed. Every live power run, tethered evaluation, and tuning flight is logged systematically with video recordings, configuration snapshots, and diagnostic telemetry.
+Welcome to my live testing logs! This is where I document all my real power-on tests, tethered hover sessions, and eventual flight tests as I dial in this custom 500mm quad.
 
 ---
 
-## 🛡️ Testing Methodology & Safety Protocols
+## How I'm Approaching Testing Safely
+A 500mm drone with 10-inch props can do serious damage if something goes wrong, so I'm taking things in careful, calculated steps rather than rushing outside and hoping for the best:
 
-Because this build uses a large 500mm wheelbase and powerful 10-inch propellers, testing follows a strict phased safety protocol to prevent runaway flyaways, frame damage, or injury:
-
-1. **Phase 1: Strapped Hardware Validation (Zero Travel)**
-   * Drone is tied down flat to the suitcase anchor base using heavy-duty straps.
-   * Tests motor direction, commutation under load, ESC synchronization, and disarm/failsafe responsiveness without any flight hazard.
-2. **Phase 2: Constrained Tethered Hover (~7-Inch Vertical Travel)**
-   * Drone is attached to corner tethers anchored to external weights.
-   * Allows enough lift to observe self-leveling and roll/pitch stability in the "goldilocks" zone while preventing dangerous pitch-ups or tip-overs.
-3. **Phase 3: Expanded Tether Envelope**
-   * Testing altitude hold and yaw authority with extended tether margins.
+1. **Phase 1: Strapped Down Hardware Check**
+   The drone is completely tied down flat to my suitcase testbed. This lets me check motor spin directions, test ESC synchronization under real battery load, and make sure the arm/disarm switches and failsafes work without any risk of the drone flipping into a wall.
+2. **Phase 2: Constrained Tethered Hover (~7 Inches of Lift)**
+   The drone is attached to corner lines tied to weights outside the propeller radius. This gives it just enough slack (about 7 inches) to lift off and test whether the PID loop can self-level, while keeping it low enough that a bad oscillation won't cause a violent crash.
+3. **Phase 3: Looser Tether / Higher Hover**
+   Once hover stability is dialed in, I'll extend the lines to check yaw control and altitude stability.
 4. **Phase 4: Free Flight**
-   * Outdoor untethered flight after full PID stabilization.
+   Real untethered flying once everything is completely proven on the bench rig.
 
 ---
 
-## 📑 Test Log Index
+## The Test Logs
 
-| Test Run | Date | Configuration | Testbed Setup | Status | Detailed Report |
+| Test | Date | Setup | What was tested | Outcome | Link |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Test 01** | 2026-10-03 | Stock Betaflight 5" PIDs | Fully Strapped to Suitcase | **PASSED** (Hardware 100% verified; PIDs too aggressive for 500mm) | [View Test 01 Log](test_01/README.md) |
-| **Test 02** | *Upcoming* | Custom 500mm Low-Gain PIDs (`cli_dump.txt`) | Constrained Tether (~7" lift) | *Planned* | TBD |
+| **Test 01** | Oct 03, 2026 | Strapped to suitcase | Arming, motor sync, and stock PID behavior | Hardware passed; stock 5-inch PIDs are way too aggressive | [Read Test 01 Log](test_01/README.md) |
+| **Test 02** | Upcoming | ~7-inch tether | Custom 500mm PID tuning from CLI dump | Planned | Coming soon |
 
 ---
 
-## 📁 Directory Structure
-
-```text
-testing_logs/
-├── README.md                          # Testing index and protocol overview (this file)
-└── test_01/                           # Test 01 session files
-    ├── README.md                      # Detailed log, whiteboard transcription, and analysis
-    ├── test_01_hardware_check_strapped.mp4 # Video of live strapped test
-    └── test_01_stock_pid_preset.png   # Screenshot of Betaflight PID profile used
-```
+## Folder Layout
+* `test_01/` - Video, tuning screenshots, and detailed diary for Test 01.
