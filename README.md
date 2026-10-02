@@ -26,3 +26,4 @@ I've been documenting everything as I go, especially since this build fought me 
 * **Motor Spin Diagram:** ![Spin Directions](assets/schematics/motor_spinning_directions.jpeg)
 * **Video:** [Bench Test Walkaround](assets/media/bench_test_walkaround.mp4)
 * **Test 01 Video:** [Test 01 Strapped Hardware Check](docs/testing_logs/test_01/test_01_hardware_check_strapped.mp4)
+* **Test 02 Video:** [Test 02 Untethered Takeoff Wobble & Abort](docs/testing_logs/test_02/test_02_takeoff_wobble_abort.mp4)

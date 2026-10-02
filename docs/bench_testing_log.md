@@ -102,3 +102,17 @@ I've been working on a safe anchor setup using nylon ropes to prevent the drone 
   - **Tuning Observation:** Running the stock Betaflight 5" miniquad PID preset resulted in aggressive motor hunting and rapid RPM oscillation against the frame inertia. Confirmed need to flash custom low-gain 500mm PIDs before attempting tethered hover.
 - **Detailed Log & Video:** See the full report and footage in [Test 01 Log](testing_logs/test_01/README.md).
 
+---
+
+### Oct 03, 2026: Live Test 02 – Untethered Takeoff Attempt (Custom PIDs)
+**Objective:** Test liftoff and hover stability after reducing PID gains from stock miniquad defaults.
+- **Setup:** Untethered on the floor.
+- **Results:**
+  - Arming and initial spin-up were smooth.
+  - As soon as the quad gained enough throttle to break ground contact, it entered an extreme, rapid wobble across both roll and pitch.
+  - The violent oscillation caused the quad to pitch hard and tip over onto its arm.
+  - Promptly cut throttle and disarmed for safety. No catastrophic damage, but clearly shows analog ESC response lag and over-correction against 10-inch prop inertia.
+  - **Decision:** Moving all future hover tests back to the Step 4 tethered suitcase rig, and dropping gains further.
+- **Detailed Log & Video:** See the full report and video in [Test 02 Log](testing_logs/test_02/README.md).
+
+

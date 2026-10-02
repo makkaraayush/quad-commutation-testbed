@@ -23,9 +23,12 @@ A 500mm drone with 10-inch props can do serious damage if something goes wrong, 
 | Test | Date | Setup | What was tested | Outcome | Link |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Test 01** | Oct 03, 2026 | Strapped to suitcase | Arming, motor sync, and stock PID behavior | Hardware passed; stock 5-inch PIDs are way too aggressive | [Read Test 01 Log](test_01/README.md) |
-| **Test 02** | Upcoming | ~7-inch tether | Custom 500mm PID tuning from CLI dump | Planned | Coming soon |
+| **Test 02** | Oct 03, 2026 | Untethered on floor | First liftoff attempt with custom low-gain PIDs | Aborted; extreme wobble on liftoff, cut throttle for safety | [Read Test 02 Log](test_02/README.md) |
+| **Test 03** | Upcoming | ~7-inch tether on suitcase | Low-gain retune & filter smoothing | Planned | Coming soon |
 
 ---
 
 ## Folder Layout
 * `test_01/` - Video, tuning screenshots, and detailed diary for Test 01.
+* `test_02/` - Video, tuning screenshots, and post-mortem on the Test 02 wobble.
+
