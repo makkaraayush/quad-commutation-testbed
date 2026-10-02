@@ -89,3 +89,16 @@ I've been working on a safe anchor setup using nylon ropes to prevent the drone 
 - **The Problem:** The motors just kept spinning! The receiver wasn't telling the flight controller to cut the throttle.
 - **The Fix:** Configured the failsafe directly on the transmitter. Set Channel 3 (Throttle) to drop to -100%, and Channel 5 (Arming switch) to the disarm position upon signal loss.
 - **Result:** Retested. Exactly 1.5 seconds after turning off the remote, the motors completely shut down, perfectly matching the Betaflight failsafe delay configuration. Ready for safe hover testing!
+
+---
+
+### Oct 03, 2026: Live Test 01 – Hardware & Arming Check (Strapped)
+**Objective:** Live power check with full props on to verify arming, motor synchronization, and commutation following the Motor 4 ESC replacement.
+- **Setup:** Quad strapped down flat to the suitcase anchor testbed to eliminate any flip/crash hazard.
+- **Results:**
+  - All four motors armed synchronously without stutter or desync.
+  - Motor 4 ran completely clean under load with no drag or excessive heat, confirming the ESC fix.
+  - Throttle and directional stick responses were verified.
+  - **Tuning Observation:** Running the stock Betaflight 5" miniquad PID preset resulted in aggressive motor hunting and rapid RPM oscillation against the frame inertia. Confirmed need to flash custom low-gain 500mm PIDs before attempting tethered hover.
+- **Detailed Log & Video:** See the full report and footage in [Test 01 Log](testing_logs/test_01/README.md).
+
