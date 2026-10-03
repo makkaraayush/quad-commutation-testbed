@@ -115,4 +115,16 @@ I've been working on a safe anchor setup using nylon ropes to prevent the drone 
   - **Decision:** Moving all future hover tests back to the Step 4 tethered suitcase rig, and dropping gains further.
 - **Detailed Log & Video:** See the full report and video in [Test 02 Log](testing_logs/test_02/README.md).
 
+---
+
+### Oct 03, 2026: Off-Camera Bench Tuning & M10Q GPS Arrival
+After seeing that nasty wobble during Test 02's liftoff attempt, I spent a solid chunk of time on the bench doing a bunch of precise, off-camera tunings to get things under control before risking another live run:
+- **Smoothing out the loop:** Refined the PID gains further and tweaked the filter sliders to prevent motor noise from feeding back into the analog ESCs. The goal was to eliminate the phase lag between the flight controller and the heavy 10-inch props.
+- **Pre-Test Check:** Ran bench commutation and individual motor sweeps without props to confirm signals stayed crisp and free of jitter across the throttle curve.
+- **Hardware Upgrade (M10Q 250 GPS + 5883 Compass Arrived!):** My new M10Q GPS with the integrated QMC5883L compass just arrived in the mail. The game plan now:
+  1. Run Test 03 to verify these off-camera fine-tunings.
+  2. Wire up the GPS (UART) and compass (I2C) to the DakeFPV F405 and test the sensor feeds in Betaflight.
+  3. Once everything is confirmed stable, make the official switch over to ArduPilot for autonomous flight and mission planning.
+
+
 

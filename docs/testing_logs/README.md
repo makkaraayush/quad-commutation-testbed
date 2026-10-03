@@ -24,11 +24,14 @@ A 500mm drone with 10-inch props can do serious damage if something goes wrong, 
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Test 01** | Oct 03, 2026 | Strapped to suitcase | Arming, motor sync, and stock PID behavior | Hardware passed; stock 5-inch PIDs are way too aggressive | [Read Test 01 Log](test_01/README.md) |
 | **Test 02** | Oct 03, 2026 | Untethered on floor | First liftoff attempt with custom low-gain PIDs | Aborted; extreme wobble on liftoff, cut throttle for safety | [Read Test 02 Log](test_02/README.md) |
-| **Test 03** | Upcoming | ~7-inch tether on suitcase | Low-gain retune & filter smoothing | Planned | Coming soon |
+| **Test 03** | In Progress | Fine-tuned hover test | Evaluating off-camera PID & filter refinements | In Progress | Coming soon |
+
+*Note: Between Test 02 and Test 03, several rounds of off-camera bench tunings were performed to refine the lowpass filters and smooth out the loop against analog ESC latency. The M10Q-5883 GPS module also arrived and will be integrated after Test 03 prior to switching to ArduPilot.*
 
 ---
 
 ## Folder Layout
 * `test_01/` - Video, tuning screenshots, and detailed diary for Test 01.
 * `test_02/` - Video, tuning screenshots, and post-mortem on the Test 02 wobble.
+
 
