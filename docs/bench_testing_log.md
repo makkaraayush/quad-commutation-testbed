@@ -126,5 +126,29 @@ After seeing that nasty wobble during Test 02's liftoff attempt, I spent a solid
   2. Wire up the GPS (UART) and compass (I2C) to the DakeFPV F405 and test the sensor feeds in Betaflight.
   3. Once everything is confirmed stable, make the official switch over to ArduPilot for autonomous flight and mission planning.
 
+---
+
+### Oct 04, 2026: Live Test 03 – Stable Hover Achieved (Wobble Eliminated!)
+**Objective:** Test liftoff and hover stability after off-camera PID refinements, zeroing D-Max, and heavily downgrading Angle mode strength.
+- **Setup:** Untethered on floor.
+- **Results:**
+  - Liftoff was super smooth and controlled.
+  - The violent wobble from Test 02 was completely eliminated! The drone hovered steadily at knee and waist height across multiple touch-and-go cycles.
+  - Used the VRB knob to test Angle mode self-leveling in real time with zero snapping or oscillation.
+  - Slight positional drift occurred as expected since there is no GPS or optical flow sensor yet.
+- **Detailed Log & Video:** See the full writeup and footage in [Test 03 Log](testing_logs/test_03/README.md).
+
+---
+
+### Oct 04, 2026: Live Test 04 – In-Flight Failsafe Drop Test
+**Objective:** Verify that the flight controller immediately kills motor power in mid-air upon signal loss / failsafe trigger.
+- **Setup:** Hovering in the room at approximately eye level.
+- **Results:**
+  - Drone hovered rock-solid in place.
+  - Triggered failsafe: at roughly the 0:36 mark, all four motors instantly died and the quad dropped flat to the floor.
+  - Zero motor run-on, no throttle hang, and zero flyaway hazard. Failsafe is 100% verified under real flight load.
+- **Detailed Log & Video:** See the full writeup and footage in [Test 04 Log](testing_logs/test_04/README.md).
+
+
 
 
