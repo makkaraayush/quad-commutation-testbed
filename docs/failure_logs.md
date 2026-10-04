@@ -43,3 +43,12 @@ Next up: Calibrating all the ESCs together and starting the tuning process!
 - **What happened:** Tried to flash `arducopter_with_bl.hex` using Betaflight Configurator's "Load Firmware [Local]" tab, but the flash process kept erroring out and refusing to write. Betaflight's flasher is designed specifically for Betaflight firmware and balks at external bootloaders and full-chip hex layouts.
 - **The fix:** Switched to **STM32CubeProgrammer**. Booted the STM32F405 into DFU mode, loaded the hex, and flashed it with a full chip erase. It wrote and verified cleanly on the first try.
 
+### Issue 9: M10Q-5883 Compass Undetected (SCL Voltage Failure)
+- **What happened:** After installing ArduPilot and wiring up the M10Q-5883 unit, the GPS locked satellites and worked fine, but the compass was completely missing in Mission Planner. Tweaked all compass parameters (`COMPASS_ENABLE`, `COMPASS_AUTO_ROT`, bus IDs), but nothing brought it to life.
+- **Diagnostics with Multimeter:**
+  - Checked resistance across the lines: resistance readings were normal (no dead short to ground).
+  - Unpowered behavior: With the GPS plugged into the FC but unpowered, both SDA and SCL floated around ~1.5V.
+  - Powered behavior: Once the GPS was supplied with 5V, SDA immediately pulled up to a healthy 3.3V, but SCL remained stuck down (around 0.2V / unpulled).
+- **The Takeaway:** The SCL line on the GPS/compass module is failing to pull up to 3.3V. Since I2C is an open-drain bus, a stuck clock line prevents ArduPilot from communicating with the compass chip. Currently investigating the module's SCL pull-up circuit and pin connections.
+
+

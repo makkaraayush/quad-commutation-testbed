@@ -167,6 +167,18 @@ After seeing that nasty wobble during Test 02's liftoff attempt, I spent a solid
 - **The Solution:** Fired up **STM32CubeProgrammer**, put the F405 into DFU mode, and flashed the hex directly to the chip with a full chip erase.
 - **Status: Flashed successfully!** The board is officially running ArduPilot (ArduCopter V4.7.1). Now ready to fire up Mission Planner and start setting up the frame and sensors.
 
+---
+
+### Oct 04, 2026: GPS Success & Compass SCL Multimeter Diagnostics
+- **GPS Status:** Connected the M10Q module to the UART port. GPS is working great in ArduPilot and acquiring satellite fixes.
+- **Compass Issue:** The onboard compass wasn't showing up in ArduPilot despite tweaking all relevant parameters.
+- **Multimeter Diagnostics:**
+  - Checked resistance across the lines: readings were normal, showing no dead short to ground on SCL.
+  - Unpowered check: With the GPS plugged into the FC but unpowered, both SDA and SCL floated around ~1.5V.
+  - Powered check: Once 5V was supplied to the GPS, SDA properly pulled up to 3.3V, but SCL remained stuck down (around 0.2V).
+  - Conclusion: The SCL line isn't getting pulled up to 3.3V, which halts I2C clock generation and blocks compass communication. Currently troubleshooting the SCL line and pull-up circuit.
+
+
 
 
 
