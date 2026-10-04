@@ -160,6 +160,14 @@ After seeing that nasty wobble during Test 02's liftoff attempt, I spent a solid
   - Memory span: `0x08000000` to `0x080DDA60` = 886.59 KB (907,872 bytes).
   - Result: FITS cleanly inside the 1MB (1024 KB) flash with 137.41 KB of free headroom. It is not overloaded, so we can flash this stock build directly!
 
+---
+
+### Oct 04, 2026: ArduPilot Flashed via STM32CubeProgrammer
+- **Flashing Headaches:** Tried flashing the local `arducopter_with_bl.hex` through Betaflight Configurator, but it kept failing/refusing to write the image. Betaflight's flasher expects its own partition layout and doesn't like flashing foreign bootloaders.
+- **The Solution:** Fired up **STM32CubeProgrammer**, put the F405 into DFU mode, and flashed the hex directly to the chip with a full chip erase.
+- **Status: Flashed successfully!** The board is officially running ArduPilot (ArduCopter V4.7.1). Now ready to fire up Mission Planner and start setting up the frame and sensors.
+
+
 
 
 
