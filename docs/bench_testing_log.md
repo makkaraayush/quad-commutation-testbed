@@ -196,6 +196,16 @@ After seeing that nasty wobble during Test 02's liftoff attempt, I spent a solid
   - Unplug the cable from the phone/FC (the FC stays powered from the LiPo) and we are good to fly!
   - Zero extra hardware or messy wiring modifications needed until I can save up for modern BLHeli_S/32 ESCs down the road.
 
+---
+
+### Oct 05, 2026: ArduPilot Failsafe Recalibration & AutoTune Flight Prep
+- **Failsafe Recalibration:** Completed full recalibration of all failsafe mechanisms in Mission Planner (Radio Failsafe on signal loss, Battery Failsafe low-voltage triggers, and GCS failsafe).
+- **Pre-Flight Status:**
+  - Sensor calibration verified (accelerometer, M10Q GPS lock, and QMC5883L compass).
+  - Ready for initial manual takeoff and basic hover verification.
+  - AutoTune mode mapped to an auxiliary switch to automatically calculate optimal rate PIDs for the 500mm frame once airborne in a stable AltHold hover.
+
+
 
 
 
