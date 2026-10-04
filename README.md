@@ -17,6 +17,7 @@ I've been documenting everything as I go, especially since this build fought me 
 * [My Bench Tests](docs/bench_testing_log.md) - Logs from when I was testing it on the bench, tuning the ESCs and fixing motor start issues.
 * [Crash & Troubleshooting Log](docs/failure_logs.md) - My diary of things that broke, weird glitches, and that time it randomly freaked out on the bench.
 * [Live Testing Logs](docs/testing_logs/README.md) - Chronological flight/bench test runs with video recordings and configuration profiles (Test 01+).
+* [Hardware Wiring & Circuit Guide](docs/hardware_wiring/README.md) - Exact pinouts, power distribution, ESC connections, and receiver wiring.
 
 ## Pics and Media
 * **Full Drone:** ![Full Quadcopter](assets/hardware/full_quadcopter_assembly_top_view.jpg)
