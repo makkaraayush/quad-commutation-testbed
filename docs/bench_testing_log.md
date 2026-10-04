@@ -189,7 +189,13 @@ After seeing that nasty wobble during Test 02's liftoff attempt, I spent a solid
 - **The 8-Hour Nonstop Grind:** Spent 8 hours nonstop testing every parameter permutation in Mission Planner, re-checking wiring connections, and troubleshooting solder points trying to isolate why battery-only power failed.
 - **The Mobile Charger Breakthrough:** Tested a boot timing theory by using a phone charger to power up the FC's 5V input first. Allowed ArduPilot a few seconds to complete its boot sequence and sensor init, then plugged in the LiPo. All four ESCs immediately sang their startup tones and initialized flawlessly!
 - **The Root Cause:** Legacy analog ESCs feature an internal hardware timeout. If they do not detect a valid zero-throttle PWM signal within a couple seconds of receiving power, they lock out to prevent runaways. Betaflight boots in milliseconds, easily beating this timer. ArduPilot takes several seconds to boot its ChibiOS RTOS, EKF, and safety checks before enabling PWM outputs, causing the ESCs to time out when both are powered simultaneously from the LiPo.
-- **Operational Solution:** Power the flight controller slightly before the ESCs so ArduPilot is actively driving PWM pulses when the ESCs power on.
+- **Operational Solution (The Phone Startup Trick):** Instead of cutting wires or adding physical switches just to accommodate these frustrating legacy ESCs, I found a way better field solution:
+  - Plug a standard USB Type-C to Type-C cable from my mobile phone into the FC's USB port.
+  - The phone boots the F405 via reverse charging. Wait a few seconds for ArduPilot to finish its startup sequence and start driving PWM pulses.
+  - Plug in the main 3S LiPo battery—the ESCs hear the signal immediately and initialize cleanly.
+  - Unplug the cable from the phone/FC (the FC stays powered from the LiPo) and we are good to fly!
+  - Zero extra hardware or messy wiring modifications needed until I can save up for modern BLHeli_S/32 ESCs down the road.
+
 
 
 

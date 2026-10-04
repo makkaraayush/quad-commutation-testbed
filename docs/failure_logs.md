@@ -62,7 +62,13 @@ Next up: Calibrating all the ESCs together and starting the tuning process!
   - Betaflight never had this issue because it is an ultra-lightweight firmware that boots in milliseconds, immediately spitting out 480Hz PWM pulses before the ESC timeout expires.
   - ArduPilot, on the other hand, runs a full ChibiOS real-time operating system with extensive pre-arm checks, sensor initialization, and EKF filtering that takes roughly 4 to 8 seconds to boot before enabling motor timer outputs.
   - When plugging in the LiPo directly, the ESCs wake up, wait for a signal that isn't ready yet, time out, and shut down before ArduPilot ever finishes booting!
-- **The Solution / Workaround:** Power the flight controller a few seconds before the ESCs (or use an auxiliary pre-boot step), giving ArduPilot time to boot and start driving its PWM signal lines before the ESCs run their startup checks.
+- **The Field Workaround (The Phone Trick):** Instead of cutting and splicing battery wires or adding physical switches just to bypass these cheap old ESCs, I found a way cleaner field solution:
+  1. Plug a standard USB Type-C to Type-C cable from my mobile phone directly into the F405 flight controller's USB-C port.
+  2. The phone powers the FC via reverse charging, letting ArduPilot complete its full boot sequence and start spitting out PWM pulses.
+  3. Wait a few seconds until the boot tones finish, then plug in the main 3S LiPo battery. The ESCs hear the active PWM signal instantly and initialize cleanly!
+  4. Unplug the Type-C cable from the phone/FC (the FC stays powered through the onboard BEC from the LiPo). Ready to fly!
+  - It's a slightly annoying extra step caused by running ancient legacy ESCs on a shoestring budget, but it completely solves the problem with zero extra hardware or messy wiring until I can upgrade to modern BLHeli_S/32 ESCs down the line.
+
 
 
 
