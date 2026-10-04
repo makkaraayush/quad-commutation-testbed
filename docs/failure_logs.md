@@ -53,5 +53,17 @@ Next up: Calibrating all the ESCs together and starting the tuning process!
 - **The Root Cause:** Parameter collision! `NTF_LED_TYPES` (or `LED_TYPE`) was set to `455`, which instructed ArduPilot to initialize external I2C LED drivers on boot. Because no external I2C LED hardware was connected, the driver grabbed and locked up the I2C bus, dragging the SCL clock line down to 0.2V.
 - **The Fix:** Changed the parameter to **1** (Built-in / Internal Board LEDs only). Rebooted the board, the I2C bus was instantly released, SCL snapped up to 3.3V, and the compass was detected immediately in Mission Planner!
 
+### Issue 10: Analog ESCs Refusing to Start on ArduPilot Boot (The 8-Hour Mystery)
+- **What happened:** After flashing ArduPilot, plugging in the LiPo battery resulted in completely dead/silent ESCs. They refused to arm or play their startup beeps because they weren't receiving the initial zero-throttle PWM signal on power-up. Yet, strangely enough, if the flight controller was already plugged in and powered via USB first, plugging in the LiPo afterwards made all four ESCs start and run flawlessly!
+- **The 8-Hour Grind:** Spent 8 hours nonstop changing every parameter imaginable in Mission Planner, rewiring connections, testing solder joints, and pulling hair out trying to understand why it worked with USB but failed with standalone battery power.
+- **The Mobile Charger Breakthrough:** To test a theory about boot timing, I used a standard mobile phone charger to power the FC's 5V input first. I waited a few seconds for ArduPilot to finish its full startup sequence, and then plugged in the LiPo to power the ESCs. Boom—all four ESCs immediately sang their initialization chimes and armed perfectly!
+- **The Root Cause:** Hardware timer mismatch between legacy analog ESCs and ArduPilot's bootloader:
+  - These older 30A analog ESCs have a strict hardware timeout window on boot. If they don't detect a valid PWM throttle signal within a couple seconds of receiving battery power, their firmware assumes a signal fault and enters a protective lockout state to prevent runaway props.
+  - Betaflight never had this issue because it is an ultra-lightweight firmware that boots in milliseconds, immediately spitting out 480Hz PWM pulses before the ESC timeout expires.
+  - ArduPilot, on the other hand, runs a full ChibiOS real-time operating system with extensive pre-arm checks, sensor initialization, and EKF filtering that takes roughly 4 to 8 seconds to boot before enabling motor timer outputs.
+  - When plugging in the LiPo directly, the ESCs wake up, wait for a signal that isn't ready yet, time out, and shut down before ArduPilot ever finishes booting!
+- **The Solution / Workaround:** Power the flight controller a few seconds before the ESCs (or use an auxiliary pre-boot step), giving ArduPilot time to boot and start driving its PWM signal lines before the ESCs run their startup checks.
+
+
 
 

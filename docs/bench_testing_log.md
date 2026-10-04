@@ -182,6 +182,16 @@ After seeing that nasty wobble during Test 02's liftoff attempt, I spent a solid
   - Because no external I2C LED was attached, the driver grabbed and locked up the I2C bus on boot, dragging the SCL line down to 0.2V and preventing compass communication.
   - **The Fix:** Changed the parameter to **1** (internal board LEDs only). Rebooted, SCL instantly jumped to 3.3V, and the compass is now 100% detected and functional in Mission Planner!
 
+---
+
+### Oct 05, 2026: The 8-Hour ESC Boot Timing Mystery (ArduPilot vs Legacy ESCs)
+- **The Issue:** Plugging in the LiPo directly resulted in completely silent, dead ESCs that refused to arm or produce startup chimes. Yet, whenever the flight controller was pre-powered via USB, plugging in the battery made all four ESCs arm and run perfectly.
+- **The 8-Hour Nonstop Grind:** Spent 8 hours nonstop testing every parameter permutation in Mission Planner, re-checking wiring connections, and troubleshooting solder points trying to isolate why battery-only power failed.
+- **The Mobile Charger Breakthrough:** Tested a boot timing theory by using a phone charger to power up the FC's 5V input first. Allowed ArduPilot a few seconds to complete its boot sequence and sensor init, then plugged in the LiPo. All four ESCs immediately sang their startup tones and initialized flawlessly!
+- **The Root Cause:** Legacy analog ESCs feature an internal hardware timeout. If they do not detect a valid zero-throttle PWM signal within a couple seconds of receiving power, they lock out to prevent runaways. Betaflight boots in milliseconds, easily beating this timer. ArduPilot takes several seconds to boot its ChibiOS RTOS, EKF, and safety checks before enabling PWM outputs, causing the ESCs to time out when both are powered simultaneously from the LiPo.
+- **Operational Solution:** Power the flight controller slightly before the ESCs so ArduPilot is actively driving PWM pulses when the ESCs power on.
+
+
 
 
 
