@@ -149,6 +149,18 @@ After seeing that nasty wobble during Test 02's liftoff attempt, I spent a solid
   - Zero motor run-on, no throttle hang, and zero flyaway hazard. Failsafe is 100% verified under real flight load.
 - **Detailed Log & Video:** See the full writeup and footage in [Test 04 Log](testing_logs/test_04/README.md).
 
+---
+
+### Oct 04, 2026: Mount Builds & ArduPilot Hex Verification
+- **Mounts Completed:**
+  - Built the folding GPS mast mount to elevate the M10Q GPS and keep the magnetometer away from the PDB's magnetic field.
+  - Built the vibration isolation mount for the DakeFPV F405 using a squarely cut credit card plate backed with double-sided foam tape to absorb motor vibrations.
+- **ArduPilot 1MB Flash Check:**
+  - Tested the stock hex binary in `Files/arducopter_with_bl.hex` (ArduCopter V4.7.1 with bootloader for DAKEFPVF405).
+  - Memory span: `0x08000000` to `0x080DDA60` = 886.59 KB (907,872 bytes).
+  - Result: FITS cleanly inside the 1MB (1024 KB) flash with 137.41 KB of free headroom. It is not overloaded, so we can flash this stock build directly!
+
+
 
 
 
