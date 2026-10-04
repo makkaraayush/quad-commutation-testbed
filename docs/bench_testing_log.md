@@ -205,13 +205,20 @@ After seeing that nasty wobble during Test 02's liftoff attempt, I spent a solid
   - Ready for initial manual takeoff and basic hover verification.
   - AutoTune mode mapped to an auxiliary switch to automatically calculate optimal rate PIDs for the 500mm frame once airborne in a stable AltHold hover.
 
+---
 
-
-
-
-
-
-
-
+### Oct 05, 2026: Motor Mapping Fix & 5-Mode Transmitter Mixer Setup
+- **Motor Ordering & Directions:** Corrected motor mapping and rotational directions to match ArduCopter Quad-X standards (aligning with ArduPilot's motor numbering and spin directions, which differ from Betaflight).
+- **Clever 5-Flight-Mode Radio Mixing (FlySky FS-i6):**
+  - Standard radios make it tough to get more than 3 flight modes out of a single switch, but on the 6-channel FlySky FS-i6 I set up a programmable mixer mixing the 2-position switch (Channel 6) into the 3-position switch (Channel 5).
+  - By shifting the output PWM bands, this gives access to 5 distinct flight modes across two switch banks:
+    - **Bank 1 (2-Pos Switch Off):**
+      - Position 1: **Stabilize** (manual self-leveling)
+      - Position 2: **AltHold** (barometer altitude hold)
+      - Position 3: **Loiter** (full GPS position and altitude hold)
+    - **Bank 2 (2-Pos Switch On):**
+      - Position 1: **Stabilize** (always available as a manual bailout)
+      - Position 2: **RTL** (Return-To-Launch autonomous return)
+      - Position 3: **AutoTune** (automated in-flight PID tuning)
 
 
