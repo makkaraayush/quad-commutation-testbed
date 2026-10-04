@@ -169,14 +169,19 @@ After seeing that nasty wobble during Test 02's liftoff attempt, I spent a solid
 
 ---
 
-### Oct 04, 2026: GPS Success & Compass SCL Multimeter Diagnostics
+### Oct 04, 2026: GPS Success & Compass SCL Diagnostics (SOLVED!)
 - **GPS Status:** Connected the M10Q module to the UART port. GPS is working great in ArduPilot and acquiring satellite fixes.
-- **Compass Issue:** The onboard compass wasn't showing up in ArduPilot despite tweaking all relevant parameters.
-- **Multimeter Diagnostics:**
-  - Checked resistance across the lines: readings were normal, showing no dead short to ground on SCL.
+- **Compass Issue & Multimeter Diagnostics:**
+  - The onboard compass wasn't showing up in ArduPilot despite tweaking all compass parameters.
+  - Checked resistance across lines: readings were completely normal, confirming no dead short to ground.
   - Unpowered check: With the GPS plugged into the FC but unpowered, both SDA and SCL floated around ~1.5V.
-  - Powered check: Once 5V was supplied to the GPS, SDA properly pulled up to 3.3V, but SCL remained stuck down (around 0.2V).
-  - Conclusion: The SCL line isn't getting pulled up to 3.3V, which halts I2C clock generation and blocks compass communication. Currently troubleshooting the SCL line and pull-up circuit.
+  - Powered check: Once 5V was supplied to the GPS, SDA pulled up to 3.3V, but SCL remained stuck down at 0.2V.
+  - The Isolation Test: Desoldered the SCL wire from the FC pad. The loose wire from the GPS immediately measured **3.3V**, and the FC pad showed no short to ground. Hardware and wiring were completely fine!
+- **The Breakthrough (Software Bus Conflict):**
+  - Traced the issue to an ArduPilot parameter conflict: `NTF_LED_TYPES` (or `LED_TYPE`) was set to `455` (enabling external I2C LED drivers).
+  - Because no external I2C LED was attached, the driver grabbed and locked up the I2C bus on boot, dragging the SCL line down to 0.2V and preventing compass communication.
+  - **The Fix:** Changed the parameter to **1** (internal board LEDs only). Rebooted, SCL instantly jumped to 3.3V, and the compass is now 100% detected and functional in Mission Planner!
+
 
 
 

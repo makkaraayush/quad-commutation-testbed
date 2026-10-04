@@ -43,12 +43,15 @@ Next up: Calibrating all the ESCs together and starting the tuning process!
 - **What happened:** Tried to flash `arducopter_with_bl.hex` using Betaflight Configurator's "Load Firmware [Local]" tab, but the flash process kept erroring out and refusing to write. Betaflight's flasher is designed specifically for Betaflight firmware and balks at external bootloaders and full-chip hex layouts.
 - **The fix:** Switched to **STM32CubeProgrammer**. Booted the STM32F405 into DFU mode, loaded the hex, and flashed it with a full chip erase. It wrote and verified cleanly on the first try.
 
-### Issue 9: M10Q-5883 Compass Undetected (SCL Voltage Failure)
+### Issue 9: M10Q-5883 Compass Undetected (SCL Voltage Drop / LED_TYPE Bus Conflict)
 - **What happened:** After installing ArduPilot and wiring up the M10Q-5883 unit, the GPS locked satellites and worked fine, but the compass was completely missing in Mission Planner. Tweaked all compass parameters (`COMPASS_ENABLE`, `COMPASS_AUTO_ROT`, bus IDs), but nothing brought it to life.
 - **Diagnostics with Multimeter:**
-  - Checked resistance across the lines: resistance readings were normal (no dead short to ground).
+  - Checked resistance across the lines: readings were normal (no dead short to ground).
   - Unpowered behavior: With the GPS plugged into the FC but unpowered, both SDA and SCL floated around ~1.5V.
-  - Powered behavior: Once the GPS was supplied with 5V, SDA immediately pulled up to a healthy 3.3V, but SCL remained stuck down (around 0.2V / unpulled).
-- **The Takeaway:** The SCL line on the GPS/compass module is failing to pull up to 3.3V. Since I2C is an open-drain bus, a stuck clock line prevents ArduPilot from communicating with the compass chip. Currently investigating the module's SCL pull-up circuit and pin connections.
+  - Powered behavior: Once the GPS was supplied with 5V, SDA immediately pulled up to a healthy 3.3V, but SCL remained stuck down (around 0.2V).
+  - The Isolation Test: Desoldered the SCL wire from the FC pad. The loose SCL wire from the GPS immediately jumped up to a solid **3.3V**, and the FC pad showed zero shorts to ground. This proved the GPS module, pull-up resistors, and wiring harness were 100% healthy—the issue was purely inside ArduPilot!
+- **The Root Cause:** Parameter collision! `NTF_LED_TYPES` (or `LED_TYPE`) was set to `455`, which instructed ArduPilot to initialize external I2C LED drivers on boot. Because no external I2C LED hardware was connected, the driver grabbed and locked up the I2C bus, dragging the SCL clock line down to 0.2V.
+- **The Fix:** Changed the parameter to **1** (Built-in / Internal Board LEDs only). Rebooted the board, the I2C bus was instantly released, SCL snapped up to 3.3V, and the compass was detected immediately in Mission Planner!
+
 
 
