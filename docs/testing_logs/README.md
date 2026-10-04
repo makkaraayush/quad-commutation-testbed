@@ -26,8 +26,9 @@ A 500mm drone with 10-inch props can do serious damage if something goes wrong, 
 | **Test 02** | Oct 03, 2026 | Untethered on floor | First liftoff attempt with custom low-gain PIDs | Aborted; extreme wobble on liftoff, cut throttle for safety | [Read Test 02 Log](test_02/README.md) |
 | **Test 03** | Oct 04, 2026 | Untethered on floor | Fine-tuned hover test (wobble elimination) | Passed; wobble completely gone, rock-solid hover achieved | [Read Test 03 Log](test_03/README.md) |
 | **Test 04** | Oct 04, 2026 | Untethered hover | In-flight failsafe motor cut verification | Passed; motors cut cleanly, quad dropped safely | [Read Test 04 Log](test_04/README.md) |
+| **Test 05** | Oct 05, 2026 | Free flight (off-camera) | ArduPilot maiden flight & aggressive maneuver testing | Crashed during aggressive pass; recovered safely, overall flight is very stable | [Read Test 05 Log](test_05/README.md) |
 
-*Note: Between Test 02 and Test 03, multiple rounds of off-camera bench tunings were performed to refine the lowpass filters and smooth out the loop against analog ESC latency. The M10Q-5883 GPS module also arrived and will be integrated next prior to switching to ArduPilot.*
+*Note: Between Test 02 and Test 03, multiple rounds of off-camera bench tunings were performed to refine the lowpass filters and smooth out the loop against analog ESC latency. Test 05 was conducted off-camera following the migration to ArduPilot.*
 
 ---
 
@@ -36,6 +37,7 @@ A 500mm drone with 10-inch props can do serious damage if something goes wrong, 
 * `test_02/` - Video, tuning screenshots, and post-mortem on the Test 02 wobble.
 * `test_03/` - Video, tuning screenshot, and analysis of the successful hover flight.
 * `test_04/` - Video and analysis of the in-flight failsafe drop test.
+* `test_05/` - Diary and analysis of the ArduPilot maiden flight, stability checks, and aggressive maneuver crash.
 
 
 

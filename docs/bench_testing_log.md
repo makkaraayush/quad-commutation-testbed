@@ -221,4 +221,14 @@ After seeing that nasty wobble during Test 02's liftoff attempt, I spent a solid
       - Position 2: **RTL** (Return-To-Launch autonomous return)
       - Position 3: **AutoTune** (automated in-flight PID tuning)
 
+---
+
+### Oct 05, 2026: Off-Camera Maiden Flight & Aggressive Maneuver Crash
+- **Flight Testing (Off-Camera):** Took the quad out for its maiden ArduPilot flight tests. Didn't have a camera set up for recording, so this was run completely off-camera.
+- **The Crash:** Pushed the quad hard into some aggressive maneuvers to test attitude recovery and limits, resulting in a crash during one of the aggressive test passes.
+- **Outcome & Airworthiness:** 
+  - Quad was recovered safely with no critical hardware loss.
+  - Core flight stability is confirmed: the quad is remarkably stable now in the air under ArduPilot.
+
+
 
