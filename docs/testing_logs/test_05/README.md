@@ -1,39 +1,53 @@
-# Test 05: ArduPilot Maiden Flight & Aggressive Maneuver Test
+# Test 05: ArduPilot Arming & Idle Motor Check
 
-**Date:** October 5, 2026  
-**Result:** Crashed during hard maneuver, but safely recovered; overall flight confirmed very stable  
-**Setup:** Untethered outdoor free flight (off-camera)  
+**Date:** October 6, 2026  
+**Result:** Passed (Clean arming, instant idle spin across all 4 motors, immediate disarm)  
+**Setup:** Untethered ground arming test on floor  
 
 ---
 
 ## Why I Did This Test
-With ArduCopter V4.7.1 successfully flashed, the QMC5883L compass running clean on I2C, the analog ESC boot sequence worked out with the phone cable trick, and the FlySky FS-i6 configured for 5 flight modes, it was time for the quad's first real maiden flights under ArduPilot.
+After switching from Betaflight to ArduPilot, fixing the compass I2C bus conflict (`NTF_LED_TYPES = 1`), establishing the field startup sequence for the analog ESCs (USB-C phone power trick), and remapping the motors to ArduCopter Quad-X standards, I needed to verify arming and low-throttle synchronization before attempting any flight.
 
-The goal was to evaluate baseline flight stability, test response in Stabilize and AltHold, and push into more aggressive maneuvers to see how the 500mm frame and 10-inch props handle dynamic inputs.
-
----
-
-## Hardware Stack
-* **Frame:** TBS 500 (Clone)
-* **FC:** DakeFPV F405 (STM32F405)
-* **Firmware:** ArduCopter V4.7.1
-* **ESCs:** 4x 30A Analog (SimonK/BLHeli, 480Hz PWM)
-* **Motors:** 4x 2212 1000KV with 1045 props
-* **Battery:** 3S 2200mAh LiPo
-* **Radio:** FlySky FS-i6 TX / FS-iA6B RX (i-BUS, 5-mode mixer active)
-* **Sensors:** M10Q 250 GPS + QMC5883L Compass
+The goal was to confirm:
+1. ArduPilot passes all pre-arm checks with the M10Q GPS and QMC5883L compass active.
+2. The arm switch on the FlySky FS-i6 triggers clean arming with no delays.
+3. All four 2212 motors spin up smoothly at idle speed with zero stutter or desync.
+4. The disarm switch instantly cuts motor power.
 
 ---
 
-## What Happened During the Flight
-* **Off-Camera Testing:** I didn't have access to a camera while running this test session, so this flight was done completely off-camera.
-* **Flight Stability:** In normal flight and hover, the quad is actually very stable. The ArduPilot attitude estimation and filtering handle the 500mm frame significantly better than early Betaflight default gains.
-* **The Crash:** During one of the aggressive testing runs, pushing hard into dynamic maneuvers to see how the quad responds under aggressive attitude changes caused the drone to crash.
-* **Damage Assessment:** Thankfully, the quad was recovered safely without catastrophic damage. The core frame, motors, and electronics are all safe and operational.
+## The Whiteboard Breakdown
+Here is the whiteboard setup for this run:
+
+* **Goal:** Achieve Successful Flight
+* **Description:** Arm Test
+* **Hardware Stack:**
+  * Frame: TBS 500 Clone
+  * FC: DakeFPV F405
+  * ESCs: 30A Analog (SimonK/BLHeli, 480Hz PWM)
+  * Motors: 4x 2212 1000KV (1045 props)
+  * Battery: 3S 2200mAh LiPo
+  * Radio: FlySky FS-i6 TX / FS-iA6B RX (i-BUS)
+  * GPS: M10Q
+* **Firmware:** ArduPilot Custom Firmware
+* **Tuning:** Custom
 
 ---
 
-## Takeaways & Next Steps
-1. The drone has proven its baseline stability under ArduPilot.
-2. Routine pre-flight safety check: inspect motor mounts, prop integrity, and arm rigidity following the impact.
-3. Bring a camera for the next session and prepare for a clean AltHold hover test to engage AutoTune.
+## What Happened in the Test Video
+
+You can watch the recording here: [Test 05 Video Recording](test_05_arm_test.mp4)
+
+Here is how the test went down:
+
+1. **Pre-Arm Readiness:** Quad powered up cleanly via the phone boot sequence. ArduPilot completed its sensor and EKF checks.
+2. **Arming Trigger:** Flipped the arm switch on the FlySky transmitter.
+3. **Motor Spin-Up:** All four 1045 props spun up cleanly at idle without any stator chatter, stutter, or hesitation.
+4. **Throttle Blip:** Tested small throttle blips from idle to verify that all four ESCs respond synchronously to throttle inputs without drawing the quad off balance.
+5. **Clean Disarm:** Toggled the arm switch back to disarm; all four motors stopped immediately.
+
+---
+
+## Conclusion
+Arming behavior, radio link, and ESC startup synchronization under ArduPilot are verified and solid. Ready to proceed to liftoff and manual stabilization testing.

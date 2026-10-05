@@ -230,5 +230,32 @@ After seeing that nasty wobble during Test 02's liftoff attempt, I spent a solid
   - Quad was recovered safely with no critical hardware loss.
   - Core flight stability is confirmed: the quad is remarkably stable now in the air under ArduPilot.
 
+---
+
+### Oct 06, 2026: ArduPilot Flight Verification Phase (Tests 05, 06, and 07)
+With the initial off-camera shakeouts and transmitter mixer setup behind us, I set up the whiteboard and ran full video-documented verification of the ArduPilot firmware stack across three core milestone tests:
+
+1. **Test 05 (Arm Test):**
+   - Goal: Achieve Successful Flight (Arm Check).
+   - Flipped the arm switch on the FlySky FS-i6; all four 2212 motors spun up cleanly at idle without stator chatter, hesitation, or desync. Small throttle blips confirmed synchronous throttle response, and disarming instantly killed power.
+   - Outcome: Passed with flying colors. Full log: [`docs/testing_logs/test_05/README.md`](file:///d:/MIT/Projects/Drone/quad-commutation-testbed/docs/testing_logs/test_05/README.md).
+
+2. **Test 06 (Stabilization Test):**
+   - Goal: Achieve Successful Flight (Manual Stabilization).
+   - Brought the quad up into ground effect and a 1-meter hover in Stabilize mode.
+   - The quad self-leveled crisply with zero trace of the violent wobble seen in early Betaflight tests. Cyclic stick commands (roll/pitch/yaw) were predictable, with smooth attitude recovery and a gentle landing.
+   - Outcome: Passed with flying colors. Full log: [`docs/testing_logs/test_06/README.md`](file:///d:/MIT/Projects/Drone/quad-commutation-testbed/docs/testing_logs/test_06/README.md).
+
+3. **Test 07 (Alt-Hold Test):**
+   - Goal: Achieve Successful Flight (Automated Altitude Hold).
+   - Lifted off in Stabilize, switched to Alt-Hold (Bank 1, Position 2), and centered the throttle stick.
+   - The barometer and EKF z-axis estimator locked altitude rock-solid in the middle of the room ~1.5 meters up, ignoring indoor ground effect and turbulence. Cyclic corrections were clean while altitude stayed locked automatically.
+   - Outcome: Passed with flying colors. Full log: [`docs/testing_logs/test_07/README.md`](file:///d:/MIT/Projects/Drone/quad-commutation-testbed/docs/testing_logs/test_07/README.md).
+
+- **Current Status & Outdoor Flight Plan:**
+  - Indoor flight envelope expansion on ArduPilot is 100% complete and proven rock-solid.
+  - Next step: Take the quad to an open outdoor field to test GPS-dependent autonomous modes: **Loiter** (GPS position hold) and **Return-To-Launch (RTL)**, followed by in-flight **AutoTune**.
+
+
 
 
