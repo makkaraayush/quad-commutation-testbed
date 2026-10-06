@@ -38,7 +38,24 @@ Here's how I got it all working smoothly:
 
 ---
 
-## Why Betaflight instead of ArduPilot?
+## Why Betaflight First, Then ArduPilot?
 Honestly, ArduPilot is amazing for autonomous flying, but it's super annoying when you just want to test things on the bench. It constantly complains if you don't have a GPS lock or the compass isn't perfect. 
 
-I switched to Betaflight specifically because it lets me manually spin the motors using the Motor tab. I need this to test my motor commutation and check how hot things are getting without jumping through hoops to arm the drone. I actually stripped out a lot of the extra telemetry and digital features from the firmware just to keep it super lightweight and compatible with my old analog ESCs!
+I initially ran Betaflight specifically because it let me manually spin the motors using the Motor tab to test commutation, check motor temperatures, and calibrate the analog ESCs without jumping through pre-arm hoops. 
+
+Once motor sync, commutation, and basic airframe stability were thoroughly proven (Tests 01 through 04), I migrated the flight controller over to custom ArduCopter firmware (V4.7.1) to unlock autonomous GPS navigation, Return-To-Launch, Alt-Hold, and waypoint missions.
+
+---
+
+## The Next Upgrade: DIY Telemetry & Live Video (The Budget Solution)
+Commercial drone telemetry systems (SiK radios, Holybro, RFDesign) and 5.8GHz FPV video transmitters/goggles are ridiculously expensive, and I simply could not afford them on my budget. 
+
+Instead of waiting or giving up on telemetry, I designed and built my own complete DIY link for under $15 total:
+* **Air Unit:** An AI-Thinker ESP32-CAM running an onboard MAVLink-to-LoRa bridge on Core 0 and streaming live MJPEG video over Wi-Fi on Core 1.
+* **Long-Range Link:** Two 433MHz Ra-02 (SX1278) LoRa modules giving 1–2 km of two-way telemetry.
+* **Transmitter Ground Station:** A standard ESP32 DevKit mounted right on the FlySky FS-i6 radio with a 0.96" I2C OLED display (JMD0.96D-1) showing live flight modes, satellite count, battery percentages, and altitude.
+* **Bluetooth Phone Bridge:** Streams MAVLink directly into QGroundControl on my Android phone via Bluetooth Classic (SPP) so my phone's 4G/5G mobile internet stays completely active for live satellite map downloads.
+* **Ground Power & Charging:** Powered by a recycled 1S 3.7V 520mAh LiPo, charged safely via a Type-C TP4056 board modified with a 3.3k ohm resistor to limit charge current to ~360mA (protecting the small cell from the stock 1A current).
+
+Full documentation, wiring pinouts, and code can be found in the [DIY LoRa Telemetry & Video System Guide](telemetry_and_video/README.md).
+
