@@ -29,8 +29,9 @@ A 500mm drone with 10-inch props can do serious damage if something goes wrong, 
 | **Test 05** | Oct 06, 2026 | Untethered on floor | ArduPilot arming and idle motor synchronization | Passed; clean arm, synchronous idle spin, instant disarm | [Read Test 05 Log](test_05/README.md) |
 | **Test 06** | Oct 06, 2026 | Untethered indoor flight | ArduPilot Stabilize mode flight & attitude control | Passed; smooth liftoff, rock-solid stabilization, zero wobble | [Read Test 06 Log](test_06/README.md) |
 | **Test 07** | Oct 06, 2026 | Untethered indoor flight | ArduPilot Alt-Hold automated altitude lock | Passed; locked vertical hold via baro/EKF, hands-off throttle | [Read Test 07 Log](test_07/README.md) |
+| **Test 08** | Oct 06, 2026 | Outdoor open field | ArduPilot Return-To-Launch (RTL) & failsafe behavior | Passed RTL twice (15m climb, exact return); low-batt RTL tree snag rescued via custom pole & diving catch | [Read Test 08 Log](test_08/README.md) |
 
-*Note: Tests 01 to 04 were conducted under Betaflight during initial hardware and filter validation. Tests 05, 06, and 07 were conducted after migrating to custom ArduPilot firmware, validating arming, manual stabilization, and automated altitude hold indoors. Subsequent autonomous tests (Loiter, Return to Launch, AutoTune) will be conducted outdoors in open airspace.*
+*Note: Tests 01 to 04 were conducted under Betaflight during initial hardware and filter validation. Tests 05 to 07 established indoor baseline health and altitude hold on ArduPilot. Test 08 marked the first outdoor autonomous GPS navigation flights and Return-To-Launch validation.*
 
 ---
 
@@ -42,6 +43,7 @@ A 500mm drone with 10-inch props can do serious damage if something goes wrong, 
 * `test_05/` - Video and analysis of the ArduPilot arming and ESC synchronization check.
 * `test_06/` - Video and analysis of the ArduPilot manual attitude stabilization flight.
 * `test_07/` - Video and analysis of the ArduPilot Alt-Hold vertical altitude lock test.
+* `test_08/` - Diary and analysis of the outdoor RTL trials, low-battery failsafe tree snag, and barehanded rescue catch.
 
 
 

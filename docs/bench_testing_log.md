@@ -252,9 +252,36 @@ With the initial off-camera shakeouts and transmitter mixer setup behind us, I s
    - The barometer and EKF z-axis estimator locked altitude rock-solid in the middle of the room ~1.5 meters up, ignoring indoor ground effect and turbulence. Cyclic corrections were clean while altitude stayed locked automatically.
    - Outcome: Passed with flying colors. Full log: [`docs/testing_logs/test_07/README.md`](file:///d:/MIT/Projects/Drone/quad-commutation-testbed/docs/testing_logs/test_07/README.md).
 
-- **Current Status & Outdoor Flight Plan:**
-  - Indoor flight envelope expansion on ArduPilot is 100% complete and proven rock-solid.
-  - Next step: Take the quad to an open outdoor field to test GPS-dependent autonomous modes: **Loiter** (GPS position hold) and **Return-To-Launch (RTL)**, followed by in-flight **AutoTune**.
+- **Current Status & Transition Outdoors:**
+  - Indoor flight envelope expansion on ArduPilot was 100% complete and proven rock-solid.
+  - Moved outdoors to an open field to test GPS navigation and autonomous Return-To-Launch (RTL).
+
+---
+
+### Oct 06, 2026: Outdoor RTL Verification, Tree Snag, & The Barehanded Rescue Catch
+Following the successful indoor tests, took the quad outside to test autonomous GPS navigation:
+
+1. **Test 08 (Outdoor Return-To-Launch Verification):**
+   - Goal: Autonomous RTL navigation via GPS & compass.
+   - Tested RTL twice in the open field. The quad climbed autonomously to 15m (`RTL_ALT = 1500`), rotated towards Home, flew across the field, and positioned itself right over the exact takeoff point. Flawless autonomous performance. Full log: [`docs/testing_logs/test_08/README.md`](file:///d:/MIT/Projects/Drone/quad-commutation-testbed/docs/testing_logs/test_08/README.md).
+
+2. **The Low-Battery Failsafe Tree Incident:**
+   - Walking the quad back home with the remaining charge, the 3S 2200mAh pack reached low-voltage failsafe (`BATT_FS_LOW_ACT = 2` / RTL).
+   - ArduPilot instantly triggered autonomous RTL back to the original field launch coordinates, climbing to 15m.
+   - En route, it encountered the tallest tree in the neighborhood (~18-20m tall) and wedged itself firmly in the top branches.
+
+3. **The Multi-Stage Rescue Operation:**
+   - Tree climb attempt: climbed up, but the top branches where the drone hung were too narrow and fragile to bear weight. A dead tree branch used as a poker also fell short.
+   - Fire brigade call: declined because their protocol only permits response to human life-or-death emergencies.
+   - Custom high-reach tool: spliced an ultra-long bamboo pole with a lightweight PVC pipe, reinforced by a wooden batten lashed along the joint.
+   - The drop & diving catch: helpers dislodged the drone with the pole while I held the safety cloth below; the drone took an unexpected outward trajectory away from the cloth, prompting a split-second sprint and barehanded diving catch!
+   - Damage: miraculously, only 1 propeller broke. Frame, carbon arms, motors, ESCs, FC, GPS mast, and all sensors survived 100% unharmed. Detailed post-mortem logged in [`docs/failure_logs.md`](file:///d:/MIT/Projects/Drone/quad-commutation-testbed/docs/failure_logs.md) under Issue 11.
+
+4. **Failsafe Engineering Decision:**
+   - Raising `RTL_ALT` to 20-25m clears neighborhood trees, but on a small 3S 2200mAh pack, climbing high during low-voltage warning draws excessive current and risks a catastrophic mid-air brownout / freefall. Will hold off on higher RTL altitude until upgrading to a larger capacity battery (e.g. 4000mAh+).
+   - For now, considering setting `BATT_FS_LOW_ACT = 1` (Land immediately in place) while maintaining strict visual line-of-sight.
+   - Quad is on the bench recharging the LiPo for complete sensor telemetry verification.
+
 
 
 

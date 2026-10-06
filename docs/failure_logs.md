@@ -69,7 +69,19 @@ Next up: Calibrating all the ESCs together and starting the tuning process!
   4. Unplug the Type-C cable from the phone/FC (the FC stays powered through the onboard BEC from the LiPo). Ready to fly!
   - It's a slightly annoying extra step caused by running ancient legacy ESCs on a shoestring budget, but it completely solves the problem with zero extra hardware or messy wiring until I can upgrade to modern BLHeli_S/32 ESCs down the line.
 
-
-
-
-
+### Issue 11: Low Battery RTL Triggered into Canopy & The High-Tree Rescue Mission
+- **What happened:** Tested ArduPilot Return-To-Launch (RTL) mode twice outdoors. Both trials worked flawlessly: the drone rose autonomously to its 15m target altitude, flew back, and positioned itself directly over the exact takeoff point. However, while bringing the drone back home after testing, the low battery failsafe triggered (`BATT_FS_LOW_ACT` was configured to RTL). The moment it reached home, ArduPilot commanded an autonomous RTL back towards the original launch coordinates. En route at 15m altitude, it flew directly into the canopy of the tallest tree in the neighborhood and became firmly wedged in the upper branches.
+- **The Rescue Mission Saga:**
+  1. *Climbing the Tree:* Rushed over and climbed up the tree trunk to try shaking the branch or pushing the drone down. Two friends on the ground stretched out a wide cloth underneath to catch the drone and absorb impact. However, the upper branches near the 15m apex were far too narrow and flimsy to support body weight without snapping.
+  2. *The Tree Branch Extension:* While perched high in the tree, broke off a long dead branch from the tree itself and tried jabbing at the drone, but it was still just out of reach.
+  3. *Calling Emergency Services:* Called the local Fire Brigade for assistance with a ladder, but they stated their policy only permits deployment for life-threatening human emergencies, not drone rescues.
+  4. *Engineering an Ultra-Long Rescue Pole:* Climbed down and engineered a rigid rescue pole on the spot: spliced an extremely long bamboo pole together with a lightweight PVC pipe, and lashed a wooden stiffening stick along the joint with tight ties so it wouldn't bow or snap under gravity.
+  5. *The Push and the Diving Catch:* Raised the pole all the way up into the canopy. The two helpers maneuvered the pole to push the drone free while I held the safety cloth below. When the drone broke free, its fall trajectory drifted completely away from the cloth! Reacting on pure adrenaline, dropped the cloth, sprinted underneath the falling quad, and caught it mid-air!
+- **Damage Assessment:** Incredibly, only a single propeller snapped during the catch. The frame, carbon arms, motors, ESCs, flight controller, GPS mast, and all sensors (IMU, Baro, Compass) survived completely intact!
+- **Root Cause & Engineering Dilemma:**
+  - `RTL_ALT` was set to the default 15m (1500cm), which is slightly lower than mature neighborhood tree crowns (~18-20m).
+  - When the 3S 2200mAh pack hit low voltage failsafe on the walk home, the FC did exactly what it was programmed to do: climbed to 15m and flew a straight vector to the Home GPS coordinates, oblivious to obstacle height.
+- **Action Plan & Options:**
+  - *Option A (Increase RTL_ALT to 20m):* Would clear tall trees, BUT climbing higher consumes significant current when the battery is already in low-voltage warning. On a small 2200mAh pack, climbing to 20m risks an airborne brownout / power cutoff mid-air. This must wait until upgrading to a larger capacity battery.
+  - *Option B (Switch Low Battery Failsafe to Land):* Set `BATT_FS_LOW_ACT = 1` (Land immediately where it is). This avoids climbing on a dying battery and prevents long-distance transit into obstacles, but requires maintaining strict line-of-sight and avoiding flight over hazardous terrain.
+  - Currently recharging the battery to perform full post-incident telemetry and sensor verification.
