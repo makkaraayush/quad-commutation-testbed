@@ -277,10 +277,11 @@ Following the successful indoor tests, took the quad outside to test autonomous 
    - The drop & diving catch: helpers dislodged the drone with the pole while I held the safety cloth below; the drone took an unexpected outward trajectory away from the cloth, prompting a split-second sprint and barehanded diving catch!
    - Damage: miraculously, only 1 propeller broke. Frame, carbon arms, motors, ESCs, FC, GPS mast, and all sensors survived 100% unharmed. Detailed post-mortem logged in [`docs/failure_logs.md`](file:///d:/MIT/Projects/Drone/quad-commutation-testbed/docs/failure_logs.md) under Issue 11.
 
-4. **Failsafe Engineering Decision:**
-   - Raising `RTL_ALT` to 20-25m clears neighborhood trees, but on a small 3S 2200mAh pack, climbing high during low-voltage warning draws excessive current and risks a catastrophic mid-air brownout / freefall. Will hold off on higher RTL altitude until upgrading to a larger capacity battery (e.g. 4000mAh+).
-   - For now, considering setting `BATT_FS_LOW_ACT = 1` (Land immediately in place) while maintaining strict visual line-of-sight.
-   - Quad is on the bench recharging the LiPo for complete sensor telemetry verification.
+4. **Failsafe Parameter Configuration:**
+   - **Low-Battery Failsafe Set to Land (`BATT_FS_LOW_ACT = 1`):** Completely eliminates the risk of autonomous cross-neighborhood transits or climbs when battery cells are depleted. The quad will descend and land vertically in place on low voltage.
+   - **RTL Altitude Raised to 22m (`RTL_ALT = 2200`):** For deliberate, switch-commanded RTL returns, the cruising altitude was increased to 22 meters (2200cm) to guarantee total clearance over the tallest neighborhood tree canopy (~18-20m), permanently resolving the tree snag hazard.
+   - Replaced broken 1045 prop; battery recharged and all sensor telemetry verified healthy in Mission Planner. Ready for next flight phase.
+
 
 
 

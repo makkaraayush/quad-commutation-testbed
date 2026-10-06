@@ -81,7 +81,7 @@ Next up: Calibrating all the ESCs together and starting the tuning process!
 - **Root Cause & Engineering Dilemma:**
   - `RTL_ALT` was set to the default 15m (1500cm), which is slightly lower than mature neighborhood tree crowns (~18-20m).
   - When the 3S 2200mAh pack hit low voltage failsafe on the walk home, the FC did exactly what it was programmed to do: climbed to 15m and flew a straight vector to the Home GPS coordinates, oblivious to obstacle height.
-- **Action Plan & Options:**
-  - *Option A (Increase RTL_ALT to 20m):* Would clear tall trees, BUT climbing higher consumes significant current when the battery is already in low-voltage warning. On a small 2200mAh pack, climbing to 20m risks an airborne brownout / power cutoff mid-air. This must wait until upgrading to a larger capacity battery.
-  - *Option B (Switch Low Battery Failsafe to Land):* Set `BATT_FS_LOW_ACT = 1` (Land immediately where it is). This avoids climbing on a dying battery and prevents long-distance transit into obstacles, but requires maintaining strict line-of-sight and avoiding flight over hazardous terrain.
-  - Currently recharging the battery to perform full post-incident telemetry and sensor verification.
+- **The Permanent Fix & Parameter Adjustments:**
+  1. **Low-Battery Failsafe Set to Land (`BATT_FS_LOW_ACT = 1`):** Changed the low battery failsafe from RTL to Land. If battery voltage drops critically, the drone now executes a smooth vertical descent on the spot instead of climbing or attempting cross-neighborhood transit on dying cells.
+  2. **RTL Return Altitude Raised to 22m (`RTL_ALT = 2200`):** For intentional, switch-activated Return-To-Launch, the return cruise altitude was increased from 15m to 22m (2200cm). This permanently guarantees the quad cruises safely above the tallest local tree canopies (~18-20m), eliminating any future tree collision hazard during autonomous return flights.
+

@@ -65,22 +65,23 @@ Retrieving a 500mm quadcopter trapped 15 meters up in a tree turned into a full-
 
 ---
 
-## Engineering Post-Mortem & Failsafe Dilemma
+## Engineering Post-Mortem & Parameter Adjustments
 
-This incident highlighted a classic autonomous failsafe trade-off:
+This incident highlighted a classic autonomous failsafe trade-off, and I made two specific parameter changes in Mission Planner to permanently fix it:
 
-* **The Cause:** `RTL_ALT` was set to the default 15m (1500cm). In suburban/neighborhood environments, mature tree crowns frequently exceed 15-20 meters.
-* **Option A: Increase RTL Altitude to 20m - 25m**
-  * *Pros:* Clears all neighborhood trees and power lines on any automated return path.
-  * *Cons:* On my current 3S 2200mAh LiPo pack, climbing an extra 5-10 meters when the battery is already in low-voltage warning draws massive current. If the battery cuts out or browns out mid-air at 25 meters, the resulting freefall would completely obliterate the drone. This option must wait until I upgrade to a larger capacity battery (e.g., 4000mAh+).
-* **Option B: Switch Low-Battery Failsafe to Land Immediately (`BATT_FS_LOW_ACT = 1`)**
-  * *Pros:* Stops the drone from climbing on a dying battery and eliminates long-distance transit into obstacles.
-  * *Cons:* Requires constant pilot vigilance to make sure the drone never flies over water, busy roads, or inaccessible rooftops where an immediate landing could cause loss.
+1. **Low-Battery Failsafe Switched to Land (`BATT_FS_LOW_ACT = 1`):**
+   - Instead of commanding an autonomous RTL across long distances on dying cells, the flight controller will now initiate a controlled vertical descent right where it is.
+   - This prevents high current draw from climbing when the battery is already in low-voltage warning, eliminating the risk of a mid-air power cutoff or brownout.
+   - *Operating Rule:* Keep strict visual line-of-sight and avoid hovering over water, busy roads, or inaccessible areas when battery voltage drops.
+
+2. **RTL Altitude Raised to 22m (`RTL_ALT = 2200`):**
+   - For deliberate, switch-activated Return-To-Launch commands, the return cruising height was increased from 15m to 22m (2200cm).
+   - This ensures the quad comfortably clears the highest neighborhood tree canopies (~18-20m) on its way back home, completely preventing tree snag incidents in future autonomous flights.
 
 ---
 
 ## Next Steps
-1. The 3S 2200mAh battery is currently charging on the bench.
-2. Replace the broken propeller.
-3. Reconnect to Mission Planner for complete post-incident sensor, calibration, and motor telemetry verification.
-4. Adjust failsafe parameters prior to next outdoor session.
+1. Replaced the single broken propeller with a fresh 1045 prop.
+2. Verified sensor telemetry (IMU, barometer, compass, and GPS) in Mission Planner following the recharge—all operational.
+3. Prepared for upcoming outdoor flight testing with the updated failsafe rules.
+
