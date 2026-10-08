@@ -7,9 +7,11 @@
     - Ra-02 3.3V power strictly sourced from ESP32-CAM 3V3 output pin.
     - Flash LED on GPIO 4 (PWM brightness controlled via Web UI).
 
-  Dual-Core Architecture:
+  Dual-Server & Dual-Core Architecture:
     - Core 0: Low-latency MAVLink UART <-> LoRa 433 MHz RF bridge (FreeRTOS pinned task).
-    - Core 1: esp_http_server hosting live FPV MJPEG video stream & tactical cockpit UI at http://192.168.4.1/.
+    - Core 1: 
+        * Port 80 (camera_httpd): Dedicated to UI & real-time controls (0ms latency, never blocks).
+        * Port 81 (stream_httpd): Dedicated continuous MJPEG video stream worker.
 */
 
 #include "esp_camera.h"
@@ -53,9 +55,9 @@ const char* AP_SSID = "DRONE_CAM";
 const char* AP_PASS = "12345678";
 
 // Runtime Camera & Flash States
-int currentFlashDuty = 0;
-int currentFramesize = FRAMESIZE_QVGA; // 5 = 320x240 (Fastest, low latency)
-int currentQuality   = 12;             // 10-63 scale (lower = crisper)
+int currentFlashDuty  = 0;
+int currentFramesize  = FRAMESIZE_QVGA; // 5 = 320x240 (Fastest, low latency)
+int currentQuality    = 12;             // 10-63 scale
 int currentBrightness = 0;
 int currentContrast   = 0;
 int currentSaturation = 0;
@@ -63,7 +65,8 @@ int currentVflip      = 0;
 int currentHmirror    = 0;
 int currentEffect     = 0;
 
-httpd_handle_t camera_httpd = NULL;
+httpd_handle_t camera_httpd = NULL; // Port 80 (UI & Real-time Controls)
+httpd_handle_t stream_httpd = NULL; // Port 81 (Dedicated Stream Worker)
 TaskHandle_t LoRaBridgeTask;
 
 // =================== FLASH LED PWM CONTROL ===================
@@ -122,7 +125,7 @@ void loraBridgeLoop(void * pvParameters) {
   }
 }
 
-// =================== EMBEDDED TACTICAL COCKPIT UI ===================
+// =================== TACTICAL FPV COCKPIT UI ===================
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
@@ -132,158 +135,212 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
   <title>Drone Air Unit | FPV Cockpit</title>
   <style>
     :root {
-      --bg: #0a0e17;
-      --card: #111827;
-      --border: #1f293d;
-      --text: #e2e8f0;
-      --text-dim: #94a3b8;
-      --accent: #00e5ff;
-      --accent-glow: rgba(0, 229, 255, 0.25);
-      --amber: #f59e0b;
-      --red: #ef4444;
-      --green: #10b981;
+      --bg: #070a12;
+      --card-bg: rgba(15, 23, 42, 0.75);
+      --card-border: rgba(30, 41, 59, 0.8);
+      --accent: #00f0ff;
+      --accent-glow: rgba(0, 240, 255, 0.35);
+      --accent-subtle: rgba(0, 240, 255, 0.12);
+      --amber: #ffb703;
+      --amber-glow: rgba(255, 183, 3, 0.3);
+      --red: #ff3366;
+      --green: #00ff9d;
+      --green-glow: rgba(0, 255, 157, 0.3);
+      --text: #f1f5f9;
+      --text-muted: #8492a6;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; }
-    body { background: var(--bg); color: var(--text); padding: 12px; min-height: 100vh; }
-    .header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
-    .title { font-size: 16px; font-weight: 700; letter-spacing: 1px; color: var(--accent); text-transform: uppercase; }
-    .status-bar { display: flex; gap: 6px; flex-wrap: wrap; }
-    .badge { font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #1e293b; color: var(--text-dim); border: 1px solid var(--border); font-weight: 600; text-transform: uppercase; }
-    .badge.active { background: rgba(16, 185, 129, 0.15); color: var(--green); border-color: rgba(16, 185, 129, 0.4); }
-    .badge.radio { background: rgba(0, 229, 255, 0.15); color: var(--accent); border-color: rgba(0, 229, 255, 0.4); }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "SF Pro Display", monospace; -webkit-tap-highlight-color: transparent; }
+    body { background: var(--bg); color: var(--text); padding: 12px; min-height: 100vh; overflow-x: hidden; }
 
-    .main-grid { display: grid; grid-template-columns: 1fr; gap: 14px; max-width: 1200px; margin: 0 auto; }
-    @media(min-width: 860px) {
-      .main-grid { grid-template-columns: 2fr 1fr; }
+    /* Top Bar */
+    .top-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; border-bottom: 1px solid var(--card-border); padding-bottom: 10px; }
+    .brand { display: flex; align-items: center; gap: 8px; }
+    .brand-icon { width: 10px; height: 10px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); }
+    .title { font-size: 14px; font-weight: 800; letter-spacing: 1.5px; color: var(--text); text-transform: uppercase; }
+    .title span { color: var(--accent); }
+
+    .telemetry-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+    .badge { font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 4px; background: rgba(30, 41, 59, 0.6); border: 1px solid var(--card-border); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 5px; }
+    .badge.online { background: rgba(0, 255, 157, 0.1); border-color: rgba(0, 255, 157, 0.3); color: var(--green); }
+    .badge.radio { background: rgba(0, 240, 255, 0.1); border-color: rgba(0, 240, 255, 0.3); color: var(--accent); }
+    .pulse-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.25; } 100% { opacity: 1; } }
+
+    /* Grid Layout */
+    .layout-grid { display: grid; grid-template-columns: 1fr; gap: 14px; max-width: 1300px; margin: 0 auto; }
+    @media(min-width: 900px) {
+      .layout-grid { grid-template-columns: 1.8fr 1.2fr; align-items: start; }
     }
 
     /* Video Viewport */
-    .stream-container { position: relative; background: #000; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; justify-content: center; align-items: center; min-height: 240px; box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
-    .stream-container img { width: 100%; height: auto; display: block; object-fit: contain; }
-    
-    .hud-overlay { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; justify-content: space-between; pointer-events: none; z-index: 10; }
-    .hud-tag { background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(4px); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; border: 1px solid rgba(255,255,255,0.1); }
-    .rec-indicator { display: inline-block; width: 8px; height: 8px; background: var(--red); border-radius: 50%; margin-right: 5px; animation: pulse 1s infinite; }
-    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    .viewport-card { background: #000; border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; position: relative; box-shadow: 0 8px 30px rgba(0,0,0,0.8); }
+    .stream-frame { position: relative; width: 100%; min-height: 260px; display: flex; justify-content: center; align-items: center; background: #020408; overflow: hidden; }
+    .stream-frame img { width: 100%; height: auto; display: block; object-fit: contain; }
 
-    .hud-controls { position: absolute; bottom: 8px; right: 8px; display: flex; gap: 6px; z-index: 10; }
-    .hud-btn { background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(4px); border: 1px solid var(--border); color: #fff; padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600; text-transform: uppercase; }
-    .hud-btn:hover { border-color: var(--accent); color: var(--accent); }
+    /* Tactical HUD Overlays */
+    .hud-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; padding: 10px; display: flex; flex-direction: column; justify-content: space-between; }
+    .hud-top { display: flex; justify-content: space-between; align-items: center; }
+    .hud-tag { background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.12); padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; color: #fff; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
+    .rec-flag { color: var(--red); display: flex; align-items: center; gap: 4px; }
+    .rec-flag::before { content: ""; display: inline-block; width: 6px; height: 6px; background: var(--red); border-radius: 50%; animation: pulse 1s infinite; }
 
-    /* Controls Panel */
-    .controls-deck { display: flex; flex-direction: column; gap: 12px; }
-    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
-    .panel-header { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    /* Crosshairs */
+    .reticle { position: absolute; inset: 0; display: none; pointer-events: none; }
+    .reticle.visible { display: block; }
+    .reticle-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; border: 1px solid rgba(0, 240, 255, 0.4); border-radius: 50%; }
+    .reticle-center::before, .reticle-center::after { content: ""; position: absolute; background: var(--accent); }
+    .reticle-center::before { top: 50%; left: -8px; right: -8px; height: 1px; transform: translateY(-50%); }
+    .reticle-center::after { left: 50%; top: -8px; bottom: -8px; width: 1px; transform: translateX(-50%); }
 
-    .control-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 13px; }
-    .control-row:last-child { margin-bottom: 0; }
-    .control-label { color: var(--text-dim); }
-    .control-val { font-weight: 600; color: var(--accent); min-width: 32px; text-align: right; }
+    /* HUD Bottom Controls */
+    .hud-bottom-bar { display: flex; justify-content: space-between; align-items: center; pointer-events: auto; background: rgba(10, 15, 29, 0.85); backdrop-filter: blur(8px); padding: 8px 12px; border-top: 1px solid var(--card-border); gap: 6px; flex-wrap: wrap; }
+    .action-btn { background: rgba(30, 41, 59, 0.8); border: 1px solid var(--card-border); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s ease; }
+    .action-btn:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 10px var(--accent-subtle); }
+    .action-btn.active { background: var(--accent); color: #000; border-color: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
 
-    input[type=range] { -webkit-appearance: none; width: 100%; background: #1e293b; height: 6px; border-radius: 3px; outline: none; margin: 6px 0; }
-    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid #000; }
+    /* Control Deck Panels */
+    .control-deck { display: flex; flex-direction: column; gap: 12px; }
+    .panel { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid var(--card-border); border-radius: 10px; padding: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+    .panel-header { font-size: 11px; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px; }
 
-    select, button.action-btn { width: 100%; background: #1e293b; border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 4px; font-size: 12px; outline: none; }
-    select:focus { border-color: var(--accent); }
-    
-    .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-    .btn-toggle { background: #1e293b; border: 1px solid var(--border); color: var(--text-dim); padding: 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; text-align: center; text-transform: uppercase; }
-    .btn-toggle.active { background: var(--accent-glow); color: var(--accent); border-color: var(--accent); }
+    /* Flashlight Panel */
+    .flash-quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+    .flash-pill { background: rgba(30, 41, 59, 0.6); border: 1px solid var(--card-border); color: var(--text-muted); padding: 6px 4px; border-radius: 6px; font-size: 10px; font-weight: 700; text-align: center; cursor: pointer; text-transform: uppercase; transition: all 0.15s; }
+    .flash-pill:hover, .flash-pill.active { background: var(--amber-glow); border-color: var(--amber); color: var(--amber); }
 
-    .switch-row { display: flex; justify-content: space-between; align-items: center; }
-    .switch { position: relative; display: inline-block; width: 38px; height: 20px; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #1e293b; transition: .2s; border-radius: 20px; border: 1px solid var(--border); }
-    .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: #94a3b8; transition: .2s; border-radius: 50%; }
-    input:checked + .slider { background-color: var(--accent); border-color: var(--accent); }
-    input:checked + .slider:before { transform: translateX(18px); background-color: #000; }
+    /* Rows and Sliders */
+    .control-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 12px; }
+    .control-label { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 11px; }
+    .control-val { font-weight: 800; color: var(--accent); font-family: monospace; }
+
+    input[type=range] { -webkit-appearance: none; width: 100%; background: #1e293b; height: 6px; border-radius: 3px; outline: none; margin: 4px 0 12px 0; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid #000; box-shadow: 0 0 8px var(--accent); transition: transform 0.1s; }
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+    /* Resolution Selector Buttons */
+    .res-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+    .res-btn { background: rgba(30, 41, 59, 0.6); border: 1px solid var(--card-border); color: var(--text-muted); padding: 7px 4px; border-radius: 6px; font-size: 10px; font-weight: 700; text-align: center; cursor: pointer; transition: all 0.15s; }
+    .res-btn:hover { border-color: var(--accent); color: #fff; }
+    .res-btn.active { background: var(--accent); color: #000; border-color: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
+
+    /* Toggle Switches */
+    .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .toggle-card { background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); padding: 8px 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: border-color 0.15s; }
+    .toggle-card:hover { border-color: var(--accent); }
+    .toggle-card.active { border-color: var(--accent); background: var(--accent-subtle); }
+    .toggle-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text); }
+
+    /* Dropdowns */
+    select.select-field { width: 100%; background: rgba(30, 41, 59, 0.8); border: 1px solid var(--card-border); color: #fff; padding: 7px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; outline: none; margin-bottom: 10px; }
+
+    /* Toast Notification */
+    .toast-container { position: fixed; bottom: 16px; left: 16px; z-index: 100; pointer-events: none; }
+    .toast { background: rgba(15, 23, 42, 0.95); border: 1px solid var(--accent); color: var(--accent); padding: 6px 14px; border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; box-shadow: 0 4px 15px rgba(0,0,0,0.6); opacity: 0; transform: translateY(10px); transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+    .toast.show { opacity: 1; transform: translateY(0); }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="title">Drone Air Unit Cockpit</div>
-    <div class="status-bar">
-      <div class="badge active"><span class="rec-indicator"></span>LIVE FPV</div>
-      <div class="badge radio">433 MHz LoRa [Core 0]</div>
+  <div class="top-bar">
+    <div class="brand">
+      <div class="brand-icon"></div>
+      <div class="title">Air Unit <span>FPV Cockpit</span></div>
+    </div>
+    <div class="telemetry-badges">
+      <div class="badge online"><span class="pulse-dot"></span>Core 1 Stream :81</div>
+      <div class="badge radio">LoRa 433 MHz [Core 0]</div>
       <div class="badge">19200 Baud FC</div>
     </div>
   </div>
 
-  <div class="main-grid">
-    <!-- Main Video Stream -->
-    <div>
-      <div class="stream-container" id="streamContainer">
-        <div class="hud-overlay">
-          <div class="hud-tag"><span class="rec-indicator"></span>LIVE STREAM</div>
-          <div class="hud-tag" id="hudResolution">320x240 (QVGA)</div>
+  <div class="layout-grid">
+    <!-- Viewport Container -->
+    <div class="viewport-card">
+      <div class="stream-frame" id="streamFrame">
+        <div class="hud-layer">
+          <div class="hud-top">
+            <div class="hud-tag rec-flag">LIVE STREAM</div>
+            <div class="hud-tag" id="hudResBadge">QVGA 320x240</div>
+          </div>
+          <div></div>
         </div>
-        <img id="stream" src="/stream" alt="Connecting to FPV Stream...">
-        <div class="hud-controls">
-          <button class="hud-btn" onclick="captureSnapshot()">Snapshot</button>
-          <button class="hud-btn" onclick="reloadStream()">Refresh</button>
-          <button class="hud-btn" onclick="toggleFullscreen()">Expand</button>
+        <div class="reticle" id="hudReticle">
+          <div class="reticle-center"></div>
         </div>
+        <img id="streamImg" alt="Connecting to Port 81 Dedicated Stream...">
+      </div>
+
+      <div class="hud-bottom-bar">
+        <div style="display: flex; gap: 6px;">
+          <button class="action-btn" onclick="captureSnapshot()">Snapshot</button>
+          <button class="action-btn" id="btnReticle" onclick="toggleReticle()">Reticle</button>
+          <button class="action-btn" onclick="reconnectStream()">Reconnect</button>
+        </div>
+        <button class="action-btn" onclick="toggleFullscreen()">Expand</button>
       </div>
     </div>
 
-    <!-- Controls Deck -->
-    <div class="controls-deck">
-      <!-- Flashlight / Night Ops -->
+    <!-- Live Controls Deck -->
+    <div class="control-deck">
+      <!-- Searchlight / Flash LED (GPIO 4) -->
       <div class="panel">
         <div class="panel-header">
           <span>Searchlight / Flash LED (GPIO 4)</span>
-          <label class="switch">
-            <input type="checkbox" id="flashToggle" onchange="toggleFlash(this.checked)">
-            <span class="slider"></span>
-          </label>
+          <span id="flashStateLabel" style="color:var(--amber); font-family:monospace;">OFF</span>
+        </div>
+        <div class="flash-quick-grid">
+          <button class="flash-pill active" id="btnFlashOff" onclick="setFlashPreset(0)">OFF</button>
+          <button class="flash-pill" id="btnFlash25" onclick="setFlashPreset(64)">25%</button>
+          <button class="flash-pill" id="btnFlash50" onclick="setFlashPreset(128)">50%</button>
+          <button class="flash-pill" id="btnFlash100" onclick="setFlashPreset(255)">MAX</button>
         </div>
         <div class="control-row">
-          <span class="control-label">Brightness</span>
+          <span class="control-label">Continuous Dimmer</span>
           <span class="control-val" id="flashVal">0%</span>
         </div>
-        <input type="range" id="flashSlider" min="0" max="255" value="0" oninput="updateFlash(this.value)">
+        <input type="range" id="flashSlider" min="0" max="255" value="0" oninput="onFlashSliderInput(this.value)">
       </div>
 
-      <!-- Resolution & Stream Quality -->
+      <!-- Resolution & Compression -->
       <div class="panel">
-        <div class="panel-header">Stream Optics & Resolution</div>
-        <div class="control-row">
-          <span class="control-label">Resolution</span>
+        <div class="panel-header">
+          <span>Optical Resolution (Port 81)</span>
+          <span style="color:var(--text-muted); font-size:9px;">INSTANT REBIND</span>
         </div>
-        <select id="framesizeSelect" onchange="setResolution(this.value)">
-          <option value="5" selected>QVGA (320x240) - Low Latency FPV</option>
-          <option value="6">CIF (400x296) - Balanced Flight</option>
-          <option value="8">VGA (640x480) - High Res</option>
-          <option value="9">SVGA (800x600) - Detailed</option>
-          <option value="11">HD (1280x720) - HD Stills</option>
-        </select>
+        <div class="res-grid">
+          <button class="res-btn active" id="res5" onclick="setResolution(5, 'QVGA (320x240)')">QVGA 30FPS</button>
+          <button class="res-btn" id="res6" onclick="setResolution(6, 'CIF (400x296)')">CIF 25FPS</button>
+          <button class="res-btn" id="res8" onclick="setResolution(8, 'VGA (640x480)')">VGA 20FPS</button>
+          <button class="res-btn" id="res9" onclick="setResolution(9, 'SVGA (800x600)')">SVGA</button>
+          <button class="res-btn" id="res11" onclick="setResolution(11, 'HD (1280x720)')">HD 720P</button>
+          <button class="res-btn" id="res13" onclick="setResolution(13, 'UXGA (1600x1200)')">2MP STILL</button>
+        </div>
 
-        <div class="control-row" style="margin-top:12px;">
+        <div class="control-row">
           <span class="control-label">JPEG Compression</span>
           <span class="control-val" id="qualityVal">12</span>
         </div>
-        <input type="range" id="qualitySlider" min="10" max="40" value="12" onchange="sendCmd('quality', this.value, 'qualityVal')">
+        <input type="range" min="10" max="40" value="12" id="qualitySlider" oninput="sendLiveControl('quality', this.value, 'qualityVal')">
       </div>
 
-      <!-- Optical Image Adjustments -->
+      <!-- Sensor Image Adjustments -->
       <div class="panel">
         <div class="panel-header">Sensor Image Tuning</div>
         <div class="control-row">
           <span class="control-label">Brightness</span>
           <span class="control-val" id="brightVal">0</span>
         </div>
-        <input type="range" min="-2" max="2" value="0" onchange="sendCmd('brightness', this.value, 'brightVal')">
+        <input type="range" min="-2" max="2" value="0" oninput="sendLiveControl('brightness', this.value, 'brightVal')">
 
         <div class="control-row">
           <span class="control-label">Contrast</span>
           <span class="control-val" id="contrastVal">0</span>
         </div>
-        <input type="range" min="-2" max="2" value="0" onchange="sendCmd('contrast', this.value, 'contrastVal')">
+        <input type="range" min="-2" max="2" value="0" oninput="sendLiveControl('contrast', this.value, 'contrastVal')">
 
         <div class="control-row">
           <span class="control-label">Special Effect</span>
         </div>
-        <select onchange="sendCmd('special_effect', this.value)">
+        <select class="select-field" onchange="sendLiveControl('special_effect', this.value)">
           <option value="0" selected>Normal</option>
           <option value="1">Negative</option>
           <option value="2">Grayscale</option>
@@ -292,81 +349,134 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
           <option value="5">Blue Tint</option>
           <option value="6">Sepia</option>
         </select>
-      </div>
 
-      <!-- Drone Inverted Mount Adjustments -->
-      <div class="panel">
-        <div class="panel-header">Frame Mounting Orientation</div>
-        <div class="btn-group">
-          <button class="btn-toggle" id="btnVflip" onclick="toggleVflip()">Flip Vertical</button>
-          <button class="btn-toggle" id="btnHmirror" onclick="toggleHmirror()">Mirror Horiz</button>
+        <!-- Drone Inverted Frame Toggles -->
+        <div class="toggle-grid">
+          <div class="toggle-card" id="cardVflip" onclick="toggleInvert('vflip')">
+            <span class="toggle-title">V-Flip (Inverted)</span>
+          </div>
+          <div class="toggle-card" id="cardHmirror" onclick="toggleInvert('hmirror')">
+            <span class="toggle-title">H-Mirror</span>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
+  <div class="toast-container">
+    <div class="toast" id="toastBox">Ready</div>
+  </div>
+
   <script>
+    // Direct stream connection to dedicated Port 81
+    const streamPort = 81;
+    const streamUrl = window.location.protocol + '//' + window.location.hostname + ':' + streamPort + '/stream';
+    const streamImg = document.getElementById('streamImg');
+    
+    // Connect stream on page boot
+    streamImg.src = streamUrl;
+
     let vflipState = 0;
     let hmirrorState = 0;
+    let reticleState = false;
+    let toastTimer = null;
 
-    function sendCmd(variable, value, labelId) {
-      if(labelId) document.getElementById(labelId).innerText = value;
-      fetch(`/control?var=${variable}&val=${value}`).catch(e => console.log(e));
+    // Toast Alert Helper
+    function showToast(msg) {
+      const box = document.getElementById('toastBox');
+      box.innerText = msg;
+      box.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => box.classList.remove('show'), 1400);
     }
 
-    function toggleFlash(enabled) {
-      const slider = document.getElementById('flashSlider');
-      let duty = enabled ? (slider.value > 0 ? slider.value : 128) : 0;
-      if (enabled && slider.value == 0) slider.value = 128;
-      updateFlash(duty);
+    // High-performance Non-blocking Control Dispatcher
+    let activeController = null;
+    function sendLiveControl(varName, value, labelId) {
+      if (labelId) document.getElementById(labelId).innerText = value;
+      
+      // Send to Port 80 dedicated controls endpoint
+      fetch(`/control?var=${varName}&val=${value}`)
+        .then(() => showToast(`${varName.toUpperCase()}: ${value}`))
+        .catch(err => console.error("Control dispatch failed", err));
     }
 
-    function updateFlash(val) {
-      const percent = Math.round((val / 255) * 100);
+    // Flash LED Controls
+    function setFlashPreset(duty) {
+      document.getElementById('flashSlider').value = duty;
+      onFlashSliderInput(duty);
+    }
+
+    function onFlashSliderInput(duty) {
+      const percent = Math.round((duty / 255) * 100);
       document.getElementById('flashVal').innerText = percent + '%';
-      document.getElementById('flashToggle').checked = (val > 0);
-      sendCmd('flash', val);
+      
+      const label = document.getElementById('flashStateLabel');
+      label.innerText = duty > 0 ? `${percent}% ON` : 'OFF';
+      label.style.color = duty > 0 ? 'var(--green)' : 'var(--amber)';
+
+      // Highlight preset buttons
+      document.getElementById('btnFlashOff').classList.toggle('active', duty == 0);
+      document.getElementById('btnFlash25').classList.toggle('active', duty > 0 && duty <= 64);
+      document.getElementById('btnFlash50').classList.toggle('active', duty > 64 && duty <= 150);
+      document.getElementById('btnFlash100').classList.toggle('active', duty > 150);
+
+      sendLiveControl('flash', duty);
     }
 
-    function setResolution(val) {
-      const resMap = {
-        '5': '320x240 (QVGA)',
-        '6': '400x296 (CIF)',
-        '8': '640x480 (VGA)',
-        '9': '800x600 (SVGA)',
-        '11': '1280x720 (HD)'
-      };
-      document.getElementById('hudResolution').innerText = resMap[val] || 'Custom';
-      fetch(`/control?var=framesize&val=${val}`).then(() => {
-        setTimeout(reloadStream, 400);
-      });
+    // Resolution Switcher with Dedicated Stream Reconnect
+    function setResolution(resVal, resLabel) {
+      document.querySelectorAll('.res-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById('res' + resVal);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      document.getElementById('hudResBadge').innerText = resLabel;
+      showToast(`SETTING ${resLabel}`);
+
+      fetch(`/control?var=framesize&val=${resVal}`)
+        .then(() => {
+          setTimeout(reconnectStream, 350);
+        });
     }
 
-    function toggleVflip() {
-      vflipState = vflipState ? 0 : 1;
-      document.getElementById('btnVflip').classList.toggle('active', vflipState);
-      sendCmd('vflip', vflipState);
+    // Invert Toggles
+    function toggleInvert(type) {
+      if (type === 'vflip') {
+        vflipState = vflipState ? 0 : 1;
+        document.getElementById('cardVflip').classList.toggle('active', vflipState);
+        sendLiveControl('vflip', vflipState);
+      } else if (type === 'hmirror') {
+        hmirrorState = hmirrorState ? 0 : 1;
+        document.getElementById('cardHmirror').classList.toggle('active', hmirrorState);
+        sendLiveControl('hmirror', hmirrorState);
+      }
     }
 
-    function toggleHmirror() {
-      hmirrorState = hmirrorState ? 0 : 1;
-      document.getElementById('btnHmirror').classList.toggle('active', hmirrorState);
-      sendCmd('hmirror', hmirrorState);
+    // Reticle HUD Crosshair
+    function toggleReticle() {
+      reticleState = !reticleState;
+      document.getElementById('hudReticle').classList.toggle('visible', reticleState);
+      document.getElementById('btnReticle').classList.toggle('active', reticleState);
+      showToast(reticleState ? 'RETICLE ACTIVE' : 'RETICLE HIDDEN');
     }
 
+    // Stream Reconnection Helper
+    function reconnectStream() {
+      streamImg.src = streamUrl + '?t=' + Date.now();
+      showToast('STREAM RECONNECTED');
+    }
+
+    // High-res Snapshot Downloader
     function captureSnapshot() {
       window.open('/capture?t=' + Date.now(), '_blank');
+      showToast('SNAPSHOT CAPTURED');
     }
 
-    function reloadStream() {
-      const img = document.getElementById('stream');
-      img.src = '/stream?t=' + Date.now();
-    }
-
+    // Native Fullscreen Toggle
     function toggleFullscreen() {
-      const elem = document.getElementById('streamContainer');
+      const frame = document.getElementById('streamFrame');
       if (!document.fullscreenElement) {
-        elem.requestFullscreen().catch(err => alert(err.message));
+        frame.requestFullscreen().catch(err => alert(err.message));
       } else {
         document.exitFullscreen();
       }
@@ -377,14 +487,14 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 )rawliteral";
 
 // =================== HTTP URI HANDLERS ===================
-// 1. Root handler: Serves the Web Cockpit UI
+// 1. Root handler (Port 80): Serves the Web Cockpit UI
 static esp_err_t index_handler(httpd_req_t *req) {
   httpd_resp_set_type(req, "text/html");
   httpd_resp_set_hdr(req, "Content-Encoding", "identity");
   return httpd_resp_send(req, INDEX_HTML, strlen(INDEX_HTML));
 }
 
-// 2. High-speed MJPEG Stream Handler
+// 2. High-speed Dedicated MJPEG Stream Handler (Port 81)
 #define PART_BOUNDARY "123456789000000000000987654321"
 static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace; boundary=" PART_BOUNDARY;
 static const char* _STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
@@ -429,7 +539,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
   return res;
 }
 
-// 3. Single Frame Capture Handler
+// 3. Single Frame Capture Handler (Port 80)
 static esp_err_t capture_handler(httpd_req_t *req) {
   camera_fb_t * fb = esp_camera_fb_get();
   if (!fb) {
@@ -443,7 +553,7 @@ static esp_err_t capture_handler(httpd_req_t *req) {
   return res;
 }
 
-// 4. Hardware & Sensor Control Handler
+// 4. Real-Time Hardware & Sensor Control Handler (Port 80 - NEVER BLOCKS!)
 static esp_err_t control_handler(httpd_req_t *req) {
   char buf[64];
   size_t buf_len = httpd_req_get_url_query_len(req) + 1;
@@ -499,24 +609,36 @@ static esp_err_t control_handler(httpd_req_t *req) {
   return httpd_resp_send_404(req);
 }
 
-// Start HTTP Server
+// Start Dual-Port Web & Stream Architecture
 void startCameraServer() {
-  httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-  config.server_port = 80;
-  config.ctrl_port = 32768;
-  config.max_uri_handlers = 8;
-  config.stack_size = 4096;
+  // 1. Port 80 Server: Dedicated to Cockpit UI and Instant Controls
+  httpd_config_t config_ui = HTTPD_DEFAULT_CONFIG();
+  config_ui.server_port = 80;
+  config_ui.ctrl_port = 32768; // Primary control port
+  config_ui.max_uri_handlers = 8;
+  config_ui.stack_size = 4096;
 
   httpd_uri_t index_uri   = { .uri = "/",        .method = HTTP_GET, .handler = index_handler,   .user_ctx = NULL };
-  httpd_uri_t stream_uri  = { .uri = "/stream",  .method = HTTP_GET, .handler = stream_handler,  .user_ctx = NULL };
   httpd_uri_t capture_uri = { .uri = "/capture", .method = HTTP_GET, .handler = capture_handler, .user_ctx = NULL };
   httpd_uri_t control_uri = { .uri = "/control", .method = HTTP_GET, .handler = control_handler, .user_ctx = NULL };
 
-  if (httpd_start(&camera_httpd, &config) == ESP_OK) {
+  if (httpd_start(&camera_httpd, &config_ui) == ESP_OK) {
     httpd_register_uri_handler(camera_httpd, &index_uri);
-    httpd_register_uri_handler(camera_httpd, &stream_uri);
     httpd_register_uri_handler(camera_httpd, &capture_uri);
     httpd_register_uri_handler(camera_httpd, &control_uri);
+  }
+
+  // 2. Port 81 Server: Dedicated Exclusively to the MJPEG Stream
+  httpd_config_t config_stream = HTTPD_DEFAULT_CONFIG();
+  config_stream.server_port = 81;
+  config_stream.ctrl_port = 32769; // Distinct secondary control port (avoids socket collision)
+  config_stream.max_uri_handlers = 2;
+  config_stream.stack_size = 4096;
+
+  httpd_uri_t stream_uri  = { .uri = "/stream",  .method = HTTP_GET, .handler = stream_handler,  .user_ctx = NULL };
+
+  if (httpd_start(&stream_httpd, &config_stream) == ESP_OK) {
+    httpd_register_uri_handler(stream_httpd, &stream_uri);
   }
 }
 
@@ -558,7 +680,7 @@ void setup() {
 
   esp_camera_init(&config);
 
-  // 2. Initialize Wi-Fi Soft AP & Non-blocking HTTP Server
+  // 2. Initialize Wi-Fi Soft AP & Dual-Port HTTP Server
   WiFi.softAP(AP_SSID, AP_PASS);
   startCameraServer();
 
@@ -596,6 +718,6 @@ void setup() {
 }
 
 void loop() {
-  // Loop is free because esp_http_server runs asynchronously in its own task on Core 1
+  // Loop is free because both http servers run asynchronously in their own FreeRTOS worker tasks
   vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
