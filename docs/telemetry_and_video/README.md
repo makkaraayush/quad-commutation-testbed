@@ -23,28 +23,17 @@ Here is the complete walkthrough of how I designed it, how I'm wiring everything
     |   Ra-02 433 MHz LoRa Module (Air) ~~~~~~ 433 MHz RF (1-2 km) ~~~~~~+
     |   (16.4cm Antenna facing UP)                                       |
     |                                                                    |
-    |-- Core 1: Live Video Web Server                                    |
-          |                                                              |
-          v                                                              |
-        2.4 GHz Wi-Fi AP ("DRONE_CAM")                                   |
-          | (30-50m Range)                                               |
-          v                                                              |
-        [PHONE BROWSER]                                                  v
-        http://192.168.4.1/stream                                [GROUND UNIT ON FS-i6]
-        (Live MJPEG Video Feed)                                    Ra-02 433 MHz LoRa (Ground)
-                                                                   (16.4cm Antenna facing UP)
-                                                                         |
-                                                                         | (SPI)
-                                                                         v
-                                                                   ESP32 DevKit (Ground)
-                                                                     |-- 0.96" I2C OLED (Live HUD)
-                                                                     |-- 1S 520mAh LiPo + TP4056
-                                                                     |-- Bluetooth Classic (SPP)
-                                                                           |
-                                                                           v
-                                                                     [ANDROID PHONE]
-                                                                     QGroundControl App
-                                                                     (4G/5G Mobile Data ACTIVE)
+    |-- Core 1: Dual-Server Web Architecture
+          |-- Port 80: Tactical Cockpit UI & Real-Time Controls (0ms lag)
+          |-- Port 81: Dedicated High-Rate MJPEG Video Stream
+          |
+          v
+        2.4 GHz Wi-Fi AP ("VORTEX-AIR-RECON")
+          | (30-50m Range)
+          v
+        [PHONE / LAPTOP BROWSER]
+        http://192.168.4.1/
+        (Tactical Cockpit, Live 90° Tilt Rotation, Flashlight, HUD)
 ```
 
 ### Why this setup is so practical:
@@ -379,13 +368,19 @@ Because LoRa has a narrower bandwidth window than a direct USB cable, we configu
 4. The map will immediately snap to your drone's GPS position, the artificial horizon will level out, and voice alerts will call out battery voltage and satellite lock.
 5. **Your phone's 4G/5G mobile internet stays active the entire time**, so satellite map tiles load smoothly as you fly.
 
-### Viewing Close-Range Video:
-1. In your phone's Wi-Fi settings, connect to **`DRONE_CAM`** (Password: `12345678`).
-2. Open Google Chrome or any browser and go to:
+### Viewing Close-Range Video & Tactical Cockpit:
+1. In your phone or laptop's Wi-Fi settings, connect to **`VORTEX-AIR-RECON`** (Password: `vortex405`).
+2. Open Google Chrome, Safari, or any mobile browser and navigate to:
    ```text
-   http://192.168.4.1/stream
+   http://192.168.4.1/
    ```
-3. You get a live video feed directly from the drone at ~25 FPS.
+3. You get the full **Tactical FPV Cockpit**:
+   - **Continuous Stream**: Smooth MJPEG video running on dedicated Port 81.
+   - **Live 90° Camera Tilt Rotation**: Buttons for `0°`, `90° CW`, `180°`, and `270° CW` with persistent orientation saving in browser storage for angled camera mounts.
+   - **Searchlight / Flash LED (GPIO 4)**: Instant presets (`OFF`, `25%`, `50%`, `MAX`) and a smooth continuous dimmer slider.
+   - **HUD Reticle**: Toggleable tactical targeting crosshair directly on the feed.
+   - **Resolution Switcher**: Direct one-click presets from `QVGA 30FPS` up to `HD 720P` and `UXGA 2MP`.
+   - **Snapshot**: Instantly downloads high-res still frames.
 
 ### Running Safe Autonomous Missions:
 A ready-to-fly waypoint mission is available in the repository at:

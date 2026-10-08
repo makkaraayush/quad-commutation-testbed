@@ -50,9 +50,9 @@
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
-// Wi-Fi Access Point Credentials
-const char* AP_SSID = "DRONE_CAM";
-const char* AP_PASS = "12345678";
+// Tactical Wi-Fi Access Point Credentials
+const char* AP_SSID = "VORTEX-AIR-RECON";
+const char* AP_PASS = "vortex405";
 
 // Runtime Camera & Flash States
 int currentFlashDuty  = 0;
@@ -132,7 +132,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-  <title>Drone Air Unit | FPV Cockpit</title>
+  <title>Vortex Air Recon | FPV Cockpit</title>
   <style>
     :root {
       --bg: #070a12;
@@ -174,8 +174,8 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 
     /* Video Viewport */
     .viewport-card { background: #000; border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; position: relative; box-shadow: 0 8px 30px rgba(0,0,0,0.8); }
-    .stream-frame { position: relative; width: 100%; min-height: 260px; display: flex; justify-content: center; align-items: center; background: #020408; overflow: hidden; }
-    .stream-frame img { width: 100%; height: auto; display: block; object-fit: contain; }
+    .stream-frame { position: relative; width: 100%; min-height: 280px; display: flex; justify-content: center; align-items: center; background: #020408; overflow: hidden; transition: min-height 0.3s ease; }
+    .stream-frame img { width: 100%; height: auto; display: block; object-fit: contain; transform-origin: center center; transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
 
     /* Tactical HUD Overlays */
     .hud-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; padding: 10px; display: flex; flex-direction: column; justify-content: space-between; }
@@ -223,7 +223,12 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     .res-btn:hover { border-color: var(--accent); color: #fff; }
     .res-btn.active { background: var(--accent); color: #000; border-color: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
 
-    /* Toggle Switches */
+    /* Rotation & Invert Controls */
+    .rot-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+    .rot-btn { background: rgba(30, 41, 59, 0.6); border: 1px solid var(--card-border); color: var(--text-muted); padding: 7px 4px; border-radius: 6px; font-size: 10px; font-weight: 700; text-align: center; cursor: pointer; transition: all 0.15s; text-transform: uppercase; }
+    .rot-btn:hover { border-color: var(--accent); color: #fff; }
+    .rot-btn.active { background: var(--accent); color: #000; border-color: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
+
     .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .toggle-card { background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); padding: 8px 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: border-color 0.15s; }
     .toggle-card:hover { border-color: var(--accent); }
@@ -243,7 +248,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
   <div class="top-bar">
     <div class="brand">
       <div class="brand-icon"></div>
-      <div class="title">Air Unit <span>FPV Cockpit</span></div>
+      <div class="title">VORTEX <span>AIR RECON</span></div>
     </div>
     <div class="telemetry-badges">
       <div class="badge online"><span class="pulse-dot"></span>Core 1 Stream :81</div>
@@ -270,8 +275,9 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       </div>
 
       <div class="hud-bottom-bar">
-        <div style="display: flex; gap: 6px;">
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
           <button class="action-btn" onclick="captureSnapshot()">Snapshot</button>
+          <button class="action-btn" id="btnQuickRotate" onclick="cycleQuickRotate()">Rot +90°</button>
           <button class="action-btn" id="btnReticle" onclick="toggleReticle()">Reticle</button>
           <button class="action-btn" onclick="reconnectStream()">Reconnect</button>
         </div>
@@ -298,6 +304,35 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
           <span class="control-val" id="flashVal">0%</span>
         </div>
         <input type="range" id="flashSlider" min="0" max="255" value="0" oninput="onFlashSliderInput(this.value)">
+      </div>
+
+      <!-- Mount Orientation & Live 90° Rotation -->
+      <div class="panel">
+        <div class="panel-header">
+          <span>Camera Tilt & Mount Orientation</span>
+          <span id="rotDegLabel" style="color:var(--accent); font-family:monospace;">0°</span>
+        </div>
+        
+        <!-- Live GPU-Accelerated 90° Rotation Buttons -->
+        <div class="control-row">
+          <span class="control-label">Live View Rotation</span>
+        </div>
+        <div class="rot-grid">
+          <button class="rot-btn active" id="rot0" onclick="setLiveRotation(0)">0° Normal</button>
+          <button class="rot-btn" id="rot90" onclick="setLiveRotation(90)">90° CW</button>
+          <button class="rot-btn" id="rot180" onclick="setLiveRotation(180)">180° Invert</button>
+          <button class="rot-btn" id="rot270" onclick="setLiveRotation(270)">270° CW</button>
+        </div>
+
+        <!-- Hardware Sensor Inversions -->
+        <div class="toggle-grid" style="margin-top:6px;">
+          <div class="toggle-card" id="cardVflip" onclick="toggleInvert('vflip')">
+            <span class="toggle-title">V-Flip (Inverted)</span>
+          </div>
+          <div class="toggle-card" id="cardHmirror" onclick="toggleInvert('hmirror')">
+            <span class="toggle-title">H-Mirror</span>
+          </div>
+        </div>
       </div>
 
       <!-- Resolution & Compression -->
@@ -349,16 +384,6 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
           <option value="5">Blue Tint</option>
           <option value="6">Sepia</option>
         </select>
-
-        <!-- Drone Inverted Frame Toggles -->
-        <div class="toggle-grid">
-          <div class="toggle-card" id="cardVflip" onclick="toggleInvert('vflip')">
-            <span class="toggle-title">V-Flip (Inverted)</span>
-          </div>
-          <div class="toggle-card" id="cardHmirror" onclick="toggleInvert('hmirror')">
-            <span class="toggle-title">H-Mirror</span>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -372,6 +397,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     const streamPort = 81;
     const streamUrl = window.location.protocol + '//' + window.location.hostname + ':' + streamPort + '/stream';
     const streamImg = document.getElementById('streamImg');
+    const streamFrame = document.getElementById('streamFrame');
     
     // Connect stream on page boot
     streamImg.src = streamUrl;
@@ -380,6 +406,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     let hmirrorState = 0;
     let reticleState = false;
     let toastTimer = null;
+    let currentRotation = 0;
 
     // Toast Alert Helper
     function showToast(msg) {
@@ -391,7 +418,6 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     }
 
     // High-performance Non-blocking Control Dispatcher
-    let activeController = null;
     function sendLiveControl(varName, value, labelId) {
       if (labelId) document.getElementById(labelId).innerText = value;
       
@@ -399,6 +425,45 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       fetch(`/control?var=${varName}&val=${value}`)
         .then(() => showToast(`${varName.toUpperCase()}: ${value}`))
         .catch(err => console.error("Control dispatch failed", err));
+    }
+
+    // Live GPU-Accelerated 90-Degree Rotation Engine
+    function setLiveRotation(deg) {
+      currentRotation = parseInt(deg);
+      
+      // Highlight active button
+      document.querySelectorAll('.rot-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById('rot' + currentRotation);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      document.getElementById('rotDegLabel').innerText = currentRotation + '°';
+
+      // Apply GPU transform
+      if (currentRotation === 90 || currentRotation === 270) {
+        streamImg.style.transform = `rotate(${currentRotation}deg) scale(0.75)`;
+        streamFrame.style.minHeight = '370px'; // Give portrait headroom
+      } else if (currentRotation === 180) {
+        streamImg.style.transform = `rotate(180deg) scale(1)`;
+        streamFrame.style.minHeight = '280px';
+      } else {
+        streamImg.style.transform = `rotate(0deg) scale(1)`;
+        streamFrame.style.minHeight = '280px';
+      }
+
+      // Persist to browser localStorage so refresh remembers tilt
+      localStorage.setItem('vortex_cam_rot', currentRotation);
+      showToast(`ROTATED: ${currentRotation}°`);
+    }
+
+    function cycleQuickRotate() {
+      const nextRot = (currentRotation + 90) % 360;
+      setLiveRotation(nextRot);
+    }
+
+    // Load saved rotation on startup
+    const savedRot = localStorage.getItem('vortex_cam_rot');
+    if (savedRot !== null) {
+      setLiveRotation(parseInt(savedRot));
     }
 
     // Flash LED Controls
@@ -439,7 +504,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
         });
     }
 
-    // Invert Toggles
+    // Hardware Invert Toggles
     function toggleInvert(type) {
       if (type === 'vflip') {
         vflipState = vflipState ? 0 : 1;
