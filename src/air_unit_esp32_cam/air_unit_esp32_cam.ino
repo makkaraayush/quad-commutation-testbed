@@ -50,9 +50,9 @@
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
-// Tactical Wi-Fi Access Point Credentials
-const char* AP_SSID = "VORTEX-AIR-RECON";
-const char* AP_PASS = "vortex405";
+// Wi-Fi Access Point Credentials
+const char* AP_SSID = "BuddyThisAintFreeWifi";
+const char* AP_PASS = "notfree123";
 
 // Runtime Camera & Flash States
 int currentFlashDuty  = 0;

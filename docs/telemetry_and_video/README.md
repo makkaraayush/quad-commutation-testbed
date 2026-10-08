@@ -28,7 +28,7 @@ Here is the complete walkthrough of how I designed it, how I'm wiring everything
           |-- Port 81: Dedicated High-Rate MJPEG Video Stream
           |
           v
-        2.4 GHz Wi-Fi AP ("VORTEX-AIR-RECON")
+        2.4 GHz Wi-Fi AP ("BuddyThisAintFreeWifi")
           | (30-50m Range)
           v
         [PHONE / LAPTOP BROWSER]
@@ -369,7 +369,7 @@ Because LoRa has a narrower bandwidth window than a direct USB cable, we configu
 5. **Your phone's 4G/5G mobile internet stays active the entire time**, so satellite map tiles load smoothly as you fly.
 
 ### Viewing Close-Range Video & Tactical Cockpit:
-1. In your phone or laptop's Wi-Fi settings, connect to **`VORTEX-AIR-RECON`** (Password: `vortex405`).
+1. In your phone or laptop's Wi-Fi settings, connect to **`BuddyThisAintFreeWifi`** (Password: `notfree123`).
 2. Open Google Chrome, Safari, or any mobile browser and navigate to:
    ```text
    http://192.168.4.1/
