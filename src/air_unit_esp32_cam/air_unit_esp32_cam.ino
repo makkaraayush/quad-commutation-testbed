@@ -3,7 +3,7 @@
   Hardware: AI-Thinker ESP32-CAM (OV2640) + LoRa Ra-02 (SX1278 433MHz)
   Connections: 
     - Hardware Serial (U0R GPIO 3, U0T GPIO 1) connected to F405 FC UART at 19200 baud.
-    - Ra-02 LoRa connected over SPI using SD Card pins (SCK 14, MISO 2, MOSI 13, SS 15).
+    - Ra-02 LoRa connected over SPI on Header 1 (SCK 13, MISO 15, MOSI 14, SS 2, RST 12).
     - Ra-02 3.3V power strictly sourced from ESP32-CAM 3V3 output pin.
 
   Dual-Core Architecture:
