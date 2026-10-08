@@ -15,7 +15,7 @@
 #define LORA_MISO       19
 #define LORA_MOSI       23
 #define LORA_SS         5
-#define LORA_RST        -1
+#define LORA_RST        14
 #define LORA_DIO0       -1
 
 #define OLED_SDA        21
@@ -64,7 +64,16 @@ void setup() {
     display.display();
   }
 
-  // 2. Initialize SPI and LoRa module
+  // 2. Hardware pulse reset for Ra-02
+  if (LORA_RST != -1) {
+    pinMode(LORA_RST, OUTPUT);
+    digitalWrite(LORA_RST, LOW);
+    delay(10);
+    digitalWrite(LORA_RST, HIGH);
+    delay(10);
+  }
+
+  // Initialize SPI and LoRa module
   SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_SS);
   LoRa.setPins(LORA_SS, LORA_RST, LORA_DIO0);
   loraOk = LoRa.begin(433E6);

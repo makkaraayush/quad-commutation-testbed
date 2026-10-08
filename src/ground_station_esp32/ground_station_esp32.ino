@@ -24,8 +24,8 @@
 #define LORA_MISO       19
 #define LORA_MOSI       23
 #define LORA_SS         5
-#define LORA_RST        -1
-#define LORA_DIO0       -1
+#define LORA_RST        14      // Hardware Reset pin (hard-reset SX1278 on boot)
+#define LORA_DIO0       -1      // Not connected (polled in loop)
 
 // OLED I2C Bus
 #define OLED_SDA        21
@@ -264,7 +264,16 @@ void setup() {
   SerialBT.begin("Drone_Telemetry");
   Serial.println("Bluetooth Started! Ready to pair as 'Drone_Telemetry'");
 
-  // 3. Initialize LoRa SPI Bus
+  // 3. Hardware pulse reset for Ra-02 (SX1278) to guarantee clean transceiver state
+  if (LORA_RST != -1) {
+    pinMode(LORA_RST, OUTPUT);
+    digitalWrite(LORA_RST, LOW);
+    delay(10);
+    digitalWrite(LORA_RST, HIGH);
+    delay(10);
+  }
+
+  // Initialize LoRa SPI Bus
   SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_SS);
   LoRa.setPins(LORA_SS, LORA_RST, LORA_DIO0);
 
@@ -275,7 +284,7 @@ void setup() {
       display.setCursor(0, 24);
       display.println("LORA INIT FAILED!");
       display.setCursor(0, 38);
-      display.println("Check SPI wiring");
+      display.println("Check SPI/RST lines");
       display.display();
     }
     while (1);

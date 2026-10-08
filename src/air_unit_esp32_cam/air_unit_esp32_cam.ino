@@ -22,7 +22,7 @@
 #define LORA_MISO      2
 #define LORA_MOSI      13
 #define LORA_SS        15
-#define LORA_RST       -1
+#define LORA_RST       12      // Hardware Reset pin (Header 1, Pin 3 on ESP32-CAM)
 #define LORA_DIO0      -1
 
 // AI-Thinker OV2640 Camera Pin Map
@@ -137,7 +137,16 @@ void setup() {
   WiFi.softAP(AP_SSID, AP_PASS);
   camServer.begin();
 
-  // 3. Initialize LoRa SPI Bus
+  // 3. Hardware pulse reset for Ra-02 (SX1278) to guarantee clean transceiver state
+  if (LORA_RST != -1) {
+    pinMode(LORA_RST, OUTPUT);
+    digitalWrite(LORA_RST, LOW);
+    delay(10);
+    digitalWrite(LORA_RST, HIGH);
+    delay(10);
+  }
+
+  // Initialize LoRa SPI Bus
   SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_SS);
   LoRa.setPins(LORA_SS, LORA_RST, LORA_DIO0);
   

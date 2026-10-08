@@ -222,11 +222,15 @@ Here is how all the modules on the FlySky transmitter connect to the ESP32 DevKi
 | **SCK** | **GPIO 18** | SPI Clock |
 | **MOSI** | **GPIO 23** | SPI Master Out Slave In |
 | **MISO** | **GPIO 19** | SPI Master In Slave Out |
-| **RST** | **3V3** | Tie directly to 3.3V (saves a GPIO pin) |
+| **RST** | **GPIO 14** | Hardware Reset line (pulsed LOW for 10ms on startup to guarantee clean SX1278 boot) |
 | **DIO0** | *Not Connected* | Polling mode in firmware |
 | **ANT** | **16.4 cm Wire** | **Soldered directly to the ANT pad on the Ra-02 board** (pointing UP!) |
 
 *(Note: The antenna connects strictly to the Ra-02's center ANT solder pad. Do not connect it to any pin on the ESP32!)*
+
+> [!TIP]
+> **Why connect RST to a GPIO instead of 3.3V?**
+> Tying RST to 3.3V relies solely on the SX1278 internal RC power-on reset circuit. If the battery voltage dips or ramps up slowly when switching on, the transceiver can hang in an unknown SPI state (`LoRa init failed`). By connecting RST to **GPIO 14**, our firmware actively drives RST LOW for 10ms and HIGH for 10ms on every startup, ensuring a 100% reliable hardware reboot.
 
 ---
 
@@ -243,7 +247,7 @@ On the drone, the AI-Thinker ESP32-CAM uses its dual-core processor to handle MA
 | **R6** (UART6 RX) | **U0T** (GPIO 1) | ESP32 sends waypoint commands to F405 |
 
 ### B. ESP32-CAM to Air LoRa Ra-02 (SPI on SD Card Lines)
-Because the OV2640 camera occupies most pins on the ESP32-CAM, the Ra-02 connects over the SD card bus lines:
+Because the OV2640 camera occupies most pins on the ESP32-CAM, the Ra-02 connects over the SD card bus lines and GPIO 12:
 
 | Ra-02 Pin | ESP32-CAM Pin | Details |
 | :--- | :--- | :--- |
@@ -253,9 +257,22 @@ Because the OV2640 camera occupies most pins on the ESP32-CAM, the Ra-02 connect
 | **SCK** | **GPIO 14** | SPI Clock |
 | **MOSI** | **GPIO 13** | SPI MOSI |
 | **MISO** | **GPIO 2** | SPI MISO |
-| **RST** | **3V3** | Tied to 3.3V |
+| **RST** | **GPIO 12** | Hardware Reset line (Header 1, Pin 3; pulsed on boot for clean SX1278 recovery) |
 | **DIO0** | *Not Connected* | Polling mode |
 | **ANT** | **16.4 cm Wire** | **Soldered directly to ANT pad on Ra-02** (pointing straight UP!) |
+
+> [!IMPORTANT]
+> **ESP32-CAM Pin Selection Rationale (Why GPIO 12):**
+> 1. **Continuous 5-Pin Header Block:** On the AI-Thinker 8-pin Header 1, pins 3 through 7 are:
+>    * Pin 3: **GPIO 12** (RST)
+>    * Pin 4: **GPIO 13** (MOSI)
+>    * Pin 5: **GPIO 15** (NSS)
+>    * Pin 6: **GPIO 14** (SCK)
+>    * Pin 7: **GPIO 2** (MISO)
+>    All five LoRa control lines sit side-by-side in a single clean row, allowing a neat 5-wire ribbon or female DuPont block with zero crossed wires!
+> 2. **Avoid GPIO 16 (PSRAM Conflict):** GPIO 16 is internally hardwired to the ESP32-CAM's external PSRAM chip select. Connecting anything to GPIO 16 corrupts camera frame memory and crashes the video stream.
+> 3. **Avoid GPIO 4 (Flashlight LED):** GPIO 4 is hardwired to the blinding white onboard flash LED. Holding it HIGH for LoRa reset would keep the flashlight burning continuously, wasting battery power and generating unnecessary heat.
+> 4. **Safe Boot State:** GPIO 12 is sampled during boot to set internal flash voltage. At power-on, the ESP32 internal pulldown keeps GPIO 12 LOW (3.3V flash mode), ensuring a normal boot sequence before our code claims it as an output and pulses reset.
 
 ---
 
