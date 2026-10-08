@@ -11,10 +11,10 @@
 #include <Adafruit_SSD1306.h>
 
 // Hardware Pinout for Standard ESP32 DevKit
-#define LORA_SCK        18
-#define LORA_MISO       19
-#define LORA_MOSI       21      // D21
-#define LORA_SS         5       // D5
+#define LORA_SCK        5       // D5
+#define LORA_MISO       18      // D18
+#define LORA_MOSI       19      // D19
+#define LORA_SS         21      // D21
 #define LORA_RST        15      // D15
 #define LORA_DIO0       -1
 

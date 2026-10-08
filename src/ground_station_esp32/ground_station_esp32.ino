@@ -19,11 +19,11 @@
 #include "BluetoothSerial.h"
 
 // =================== PIN DEFINITIONS ===================
-// LoRa SPI Bus (VSPI with MOSI on D21)
-#define LORA_SCK        18      // SPI Clock
-#define LORA_MISO       19      // SPI Master In Slave Out
-#define LORA_MOSI       21      // SPI Master Out Slave In (D21)
-#define LORA_SS         5       // SPI Chip Select (D5)
+// LoRa SPI Bus (Contiguous 4-pin block: D21, D19, D18, D5)
+#define LORA_SCK        5       // SPI Clock (D5)
+#define LORA_MISO       18      // SPI Master In Slave Out (D18)
+#define LORA_MOSI       19      // SPI Master Out Slave In (D19)
+#define LORA_SS         21      // SPI Chip Select (D21)
 #define LORA_RST        15      // Hardware Reset pin (D15)
 #define LORA_DIO0       -1      // Unconnected / Polled via SPI (can connect to D4 if desired)
 

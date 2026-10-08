@@ -218,10 +218,10 @@ Here is how all the modules on the FlySky transmitter connect to the ESP32 DevKi
 | :--- | :--- | :--- |
 | **3.3V** | **3V3** | Clean regulated 3.3V power |
 | **GND** | **GND** | Ground reference |
-| **NSS / CS** | **GPIO 5 (D5)** | SPI Chip Select |
-| **SCK** | **GPIO 18 (D18)** | SPI Clock |
-| **MISO** | **GPIO 19 (D19)** | SPI Master In Slave Out |
-| **MOSI** | **GPIO 21 (D21)** | SPI Master Out Slave In (mapped via `SPI.begin(18, 19, 21, 5)`) |
+| **NSS / CS** | **GPIO 21 (D21)** | SPI Chip Select |
+| **MOSI** | **GPIO 19 (D19)** | SPI Master Out Slave In |
+| **MISO** | **GPIO 18 (D18)** | SPI Master In Slave Out |
+| **SCK** | **GPIO 5 (D5)** | SPI Clock (mapped via `SPI.begin(5, 18, 19, 21)`) |
 | **RST** | **GPIO 15 (D15)** | Hardware Reset line (pulsed LOW for 10ms on startup for clean SX1278 boot) |
 | **DIO0** | *Not Connected* | **Leave disconnected!** Polling mode in firmware reads packets over SPI. *(Optional: connect to GPIO 4 / D4 if wiring all pins)* |
 | **ANT** | **16.4 cm Wire** | **Soldered directly to the ANT pad on the Ra-02 board** (pointing UP!) |
@@ -229,18 +229,18 @@ Here is how all the modules on the FlySky transmitter connect to the ESP32 DevKi
 *(Note: The antenna connects strictly to the Ra-02's center ANT solder pad. Do not connect it to any pin on the ESP32!)*
 
 > [!TIP]
-> **Single-Rail Wiring Advantage:**
-> With this pin arrangement, every single control signal wire for both the OLED display and the LoRa transceiver runs to the **exact same right-hand pin rail** of the ESP32 DevKit:
-> * `D23` (OLED SDA)
-> * `D22` (OLED SCL)
-> * `D21` (LoRa MOSI)
-> * `D19` (LoRa MISO)
-> * `D18` (LoRa SCK)
-> * `D5`  (LoRa NSS / CS)
-> * `D15` (LoRa RST)
-> * `D4`  (Optional LoRa DIO0, if connected)
+> **Contiguous 4-Pin Ribbon Advantage:**
+> On the ESP32 DevKit right rail, pins **D21, D19, D18, D5** sit immediately adjacent to each other in a clean 4-pin row:
+> * `D23` -> OLED SDA
+> * `D22` -> OLED SCL
+> * `D21` -> LoRa NSS (CS)
+> * `D19` -> LoRa MOSI
+> * `D18` -> LoRa MISO
+> * `D5`  -> LoRa SCK
+> * `D15` -> LoRa RST
+> * `D4`  -> Optional LoRa DIO0 (if wired)
 >
-> This makes physical wire routing inside your transmitter case clean with zero wires crossing over the ESP32 board!
+> A standard 4-wire DuPont ribbon connector from the Ra-02 SPI lines plugs directly across pins **D21 to D5** as a solid block with zero crossed or separated wires!
 
 ---
 
