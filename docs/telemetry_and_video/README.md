@@ -195,6 +195,16 @@ From Slide Switch (Switched Bat +)
 
 * This 1:1 voltage divider cuts the voltage exactly in half (4.20V becomes 2.10V), which GPIO 34 reads safely without any risk of damaging the ESP32.
 
+> [!TIP]
+> **Calibrating D34 Voltage Readings to Your Multimeter:**
+> Due to the $50\text{k}\Omega$ Thevenin source impedance of the 100k/100k divider combined with the ESP32's internal SAR ADC sample capacitor loading and individual chip Vref tolerances, the raw ADC reading on D34 typically measures slightly lower than actual battery voltage (for example, reading 3.87V when a multimeter measures 4.02V).
+>
+> In [`src/ground_station_esp32/ground_station_esp32.ino`](file:///d:/MIT/Projects/Drone/quad-commutation-testbed/src/ground_station_esp32/ground_station_esp32.ino) and [`src/ground_diagnostic/ground_diagnostic.ino`](file:///d:/MIT/Projects/Drone/quad-commutation-testbed/src/ground_diagnostic/ground_diagnostic.ino), we calibrate this with `#define BAT_CALIBRATION_FACTOR 1.0907`:
+>
+> $$\text{Calibrated Factor} = 1.05 \times \left(\frac{V_{\text{multimeter}}}{V_{\text{measured}}}\right) = 1.05 \times \left(\frac{4.02}{3.87}\right) = 1.0907$$
+>
+> If your specific multimeter reads slightly different, simply update `#define BAT_CALIBRATION_FACTOR` in the sketch to match your multimeter!
+
 ---
 
 ## 5. Ground Station Pinout: ESP32 to OLED & Ra-02

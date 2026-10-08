@@ -36,8 +36,10 @@
 #define SCREEN_ADDR_1   0x3C
 #define SCREEN_ADDR_2   0x3D
 
-// Transmitter Station Battery ADC (100k/100k Resistor Divider)
+// Transmitter Station Battery ADC (100k/100k Resistor Divider on D34)
 #define STATION_BAT_PIN 34
+// Calibration factor tuned for physical multimeter reference (4.02V actual vs 3.87V raw reading = 1.0388)
+#define BAT_CALIBRATION_FACTOR 1.0907
 
 // =================== OBJECTS ===================
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -155,8 +157,8 @@ void updateStationBattery() {
   }
   float rawAvg = rawSum / 16.0;
 
-  // 100k/100k divider factor = 2.0; 1.05 compensates for ESP32 ADC non-linearity
-  stationBatVolts = (rawAvg / 4095.0) * 3.3 * 2.0 * 1.05;
+  // 100k/100k divider factor = 2.0; BAT_CALIBRATION_FACTOR calibrates to exact multimeter reading
+  stationBatVolts = (rawAvg / 4095.0) * 3.3 * 2.0 * BAT_CALIBRATION_FACTOR;
 
   // 1S LiPo voltage curve: 3.40V empty (0%) to 4.20V full (100%)
   int pct = (int)((stationBatVolts - 3.40) / (4.20 - 3.40) * 100.0);

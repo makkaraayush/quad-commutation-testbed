@@ -27,6 +27,7 @@
 #define SCREEN_ADDR_2   0x3D
 
 #define STATION_BAT_PIN 34
+#define BAT_CALIBRATION_FACTOR 1.0907 // Calibrated for 4.02V actual vs 3.87V raw
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
@@ -100,8 +101,8 @@ void loop() {
   }
   float rawAvg = rawSum / 16.0;
   
-  // 3.3V ref / 4095 * 2.0 (divider factor) * 1.05 (ADC non-linearity compensation)
-  float batVolts = (rawAvg / 4095.0) * 3.3 * 2.0 * 1.05;
+  // 3.3V ref / 4095 * 2.0 (divider factor) * BAT_CALIBRATION_FACTOR
+  float batVolts = (rawAvg / 4095.0) * 3.3 * 2.0 * BAT_CALIBRATION_FACTOR;
   int batPct = constrain((int)((batVolts - 3.40) / (4.20 - 3.40) * 100.0), 0, 100);
 
   // Update OLED if operational
