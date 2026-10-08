@@ -64,6 +64,7 @@ int currentSaturation = 0;
 int currentVflip      = 0;
 int currentHmirror    = 0;
 int currentEffect     = 0;
+volatile bool loraReady = false;
 
 httpd_handle_t camera_httpd = NULL; // Port 80 (UI & Real-time Controls)
 httpd_handle_t stream_httpd = NULL; // Port 81 (Dedicated Stream Worker)
@@ -101,6 +102,30 @@ void loraBridgeLoop(void * pvParameters) {
   uint8_t serialBuf[128];
   
   for(;;) {
+    // 0. Auto-reconnect if Ra-02 was powered on late or reattached
+    if (!loraReady) {
+      static unsigned long lastRetry = 0;
+      if (millis() - lastRetry > 2000) {
+        lastRetry = millis();
+        if (LORA_RST != -1) {
+          digitalWrite(LORA_RST, LOW);
+          delay(10);
+          digitalWrite(LORA_RST, HIGH);
+          delay(10);
+        }
+        if (LoRa.begin(433E6)) {
+          loraReady = true;
+          LoRa.setSpreadingFactor(7);
+          LoRa.setSignalBandwidth(250E3);
+          LoRa.setCodingRate4(5);
+          LoRa.setSyncWord(0x12);
+          LoRa.setTxPower(20);
+        }
+      }
+      vTaskDelay(50 / portTICK_PERIOD_MS);
+      continue;
+    }
+
     // 1. Read MAVLink bytes from F405 flight controller -> Transmit over LoRa
     size_t bytesAvail = Serial.available();
     if (bytesAvail > 0) {
@@ -251,8 +276,8 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       <div class="title">VORTEX <span>AIR RECON</span></div>
     </div>
     <div class="telemetry-badges">
-      <div class="badge online"><span class="pulse-dot"></span>Core 1 Stream :81</div>
-      <div class="badge radio">LoRa 433 MHz [Core 0]</div>
+      <div class="badge online"><span class="pulse-dot"></span>Stream :81</div>
+      <div class="badge radio" id="loraBadge">LoRa 433 MHz [Core 0]</div>
       <div class="badge">19200 Baud FC</div>
     </div>
   </div>
@@ -546,6 +571,22 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
         document.exitFullscreen();
       }
     }
+
+    // Dynamic telemetry status polling
+    function pollStatus() {
+      fetch('/status')
+        .then(r => r.json())
+        .then(data => {
+          const badge = document.getElementById('loraBadge');
+          if (badge) {
+            badge.innerText = data.lora ? 'LoRa 433 MHz [Armed]' : 'LoRa 433 MHz [Standby]';
+            badge.className = data.lora ? 'badge online' : 'badge radio';
+          }
+        })
+        .catch(() => {});
+    }
+    setInterval(pollStatus, 3000);
+    pollStatus();
   </script>
 </body>
 </html>
@@ -674,6 +715,16 @@ static esp_err_t control_handler(httpd_req_t *req) {
   return httpd_resp_send_404(req);
 }
 
+// 5. System Status Handler (Port 80)
+static esp_err_t status_handler(httpd_req_t *req) {
+  char json[128];
+  snprintf(json, sizeof(json), "{\"lora\":%s,\"flash\":%d,\"res\":%d}", 
+           loraReady ? "true" : "false", currentFlashDuty, currentFramesize);
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+  return httpd_resp_send(req, json, strlen(json));
+}
+
 // Start Dual-Port Web & Stream Architecture
 void startCameraServer() {
   // 1. Port 80 Server: Dedicated to Cockpit UI and Instant Controls
@@ -686,11 +737,13 @@ void startCameraServer() {
   httpd_uri_t index_uri   = { .uri = "/",        .method = HTTP_GET, .handler = index_handler,   .user_ctx = NULL };
   httpd_uri_t capture_uri = { .uri = "/capture", .method = HTTP_GET, .handler = capture_handler, .user_ctx = NULL };
   httpd_uri_t control_uri = { .uri = "/control", .method = HTTP_GET, .handler = control_handler, .user_ctx = NULL };
+  httpd_uri_t status_uri  = { .uri = "/status",  .method = HTTP_GET, .handler = status_handler,  .user_ctx = NULL };
 
   if (httpd_start(&camera_httpd, &config_ui) == ESP_OK) {
     httpd_register_uri_handler(camera_httpd, &index_uri);
     httpd_register_uri_handler(camera_httpd, &capture_uri);
     httpd_register_uri_handler(camera_httpd, &control_uri);
+    httpd_register_uri_handler(camera_httpd, &status_uri);
   }
 
   // 2. Port 81 Server: Dedicated Exclusively to the MJPEG Stream
@@ -763,6 +816,7 @@ void setup() {
   LoRa.setPins(LORA_SS, LORA_RST, LORA_DIO0);
   
   if (LoRa.begin(433E6)) {
+    loraReady = true;
     LoRa.setSpreadingFactor(7);           // Fast throughput for MAVLink
     LoRa.setSignalBandwidth(250E3);        // 250 kHz bandwidth
     LoRa.setCodingRate4(5);               // 4/5 coding rate
