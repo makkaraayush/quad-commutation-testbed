@@ -13,13 +13,13 @@
 // Hardware Pinout for Standard ESP32 DevKit
 #define LORA_SCK        18
 #define LORA_MISO       19
-#define LORA_MOSI       23
-#define LORA_SS         5
-#define LORA_RST        14
+#define LORA_MOSI       21      // D21
+#define LORA_SS         5       // D5
+#define LORA_RST        15      // D15
 #define LORA_DIO0       -1
 
-#define OLED_SDA        21
-#define OLED_SCL        22
+#define OLED_SDA        23      // D23
+#define OLED_SCL        22      // D22
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   64
 #define OLED_RESET      -1
@@ -82,7 +82,7 @@ void setup() {
   Serial.print("OLED (SSD1306 @ 0x");
   Serial.print(activeOledAddr, HEX);
   Serial.print("): ");
-  Serial.println(oledOk ? "PASSED" : "FAILED (Check SDA:21, SCL:22, VCC, GND)");
+  Serial.println(oledOk ? "PASSED" : "FAILED (Check SDA:23, SCL:22, VCC, GND)");
 
   Serial.print("LoRa (Ra-02 433MHz): ");
   Serial.println(loraOk ? "PASSED" : "FAILED (Check SPI wiring and 3.3V rail)");

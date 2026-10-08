@@ -19,17 +19,17 @@
 #include "BluetoothSerial.h"
 
 // =================== PIN DEFINITIONS ===================
-// LoRa SPI Bus (Standard ESP32 VSPI)
-#define LORA_SCK        18
-#define LORA_MISO       19
-#define LORA_MOSI       23
-#define LORA_SS         5
-#define LORA_RST        14      // Hardware Reset pin (hard-reset SX1278 on boot)
-#define LORA_DIO0       -1      // Not connected (polled in loop)
+// LoRa SPI Bus (VSPI with MOSI on D21)
+#define LORA_SCK        18      // SPI Clock
+#define LORA_MISO       19      // SPI Master In Slave Out
+#define LORA_MOSI       21      // SPI Master Out Slave In (D21)
+#define LORA_SS         5       // SPI Chip Select (D5)
+#define LORA_RST        15      // Hardware Reset pin (D15)
+#define LORA_DIO0       -1      // Unconnected / Polled via SPI (can connect to D4 if desired)
 
-// OLED I2C Bus
-#define OLED_SDA        21
-#define OLED_SCL        22
+// OLED I2C Bus (Custom ESP32 I2C pins)
+#define OLED_SDA        23      // I2C Data (D23)
+#define OLED_SCL        22      // I2C Clock (D22)
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   64
 #define OLED_RESET      -1

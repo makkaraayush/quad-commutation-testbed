@@ -206,10 +206,10 @@ Here is how all the modules on the FlySky transmitter connect to the ESP32 DevKi
 | :--- | :--- | :--- |
 | **VCC** | **3V3** | 3.3V power |
 | **GND** | **GND** | Ground |
-| **SDA** | **GPIO 21** | I2C Data line |
-| **SCL** | **GPIO 22** | I2C Clock line |
+| **SDA** | **GPIO 23 (D23)** | I2C Data line (mapped via `Wire.begin(23, 22)`) |
+| **SCL** | **GPIO 22 (D22)** | I2C Clock line |
 
-### B. Ground LoRa Module (Ra-02 433MHz over VSPI)
+### B. Ground LoRa Module (Ra-02 433MHz over SPI)
 
 > [!WARNING]
 > Connect Ra-02 power strictly to the **3.3V (3V3)** pin on the ESP32! Connecting 5V directly to the Ra-02 will destroy the SX1278 transceiver.
@@ -218,19 +218,29 @@ Here is how all the modules on the FlySky transmitter connect to the ESP32 DevKi
 | :--- | :--- | :--- |
 | **3.3V** | **3V3** | Clean regulated 3.3V power |
 | **GND** | **GND** | Ground reference |
-| **NSS / CS** | **GPIO 5** | SPI Chip Select |
-| **SCK** | **GPIO 18** | SPI Clock |
-| **MOSI** | **GPIO 23** | SPI Master Out Slave In |
-| **MISO** | **GPIO 19** | SPI Master In Slave Out |
-| **RST** | **GPIO 14** | Hardware Reset line (pulsed LOW for 10ms on startup to guarantee clean SX1278 boot) |
-| **DIO0** | *Not Connected* | Polling mode in firmware |
+| **NSS / CS** | **GPIO 5 (D5)** | SPI Chip Select |
+| **SCK** | **GPIO 18 (D18)** | SPI Clock |
+| **MISO** | **GPIO 19 (D19)** | SPI Master In Slave Out |
+| **MOSI** | **GPIO 21 (D21)** | SPI Master Out Slave In (mapped via `SPI.begin(18, 19, 21, 5)`) |
+| **RST** | **GPIO 15 (D15)** | Hardware Reset line (pulsed LOW for 10ms on startup for clean SX1278 boot) |
+| **DIO0** | *Not Connected* | **Leave disconnected!** Polling mode in firmware reads packets over SPI. *(Optional: connect to GPIO 4 / D4 if wiring all pins)* |
 | **ANT** | **16.4 cm Wire** | **Soldered directly to the ANT pad on the Ra-02 board** (pointing UP!) |
 
 *(Note: The antenna connects strictly to the Ra-02's center ANT solder pad. Do not connect it to any pin on the ESP32!)*
 
 > [!TIP]
-> **Why connect RST to a GPIO instead of 3.3V?**
-> Tying RST to 3.3V relies solely on the SX1278 internal RC power-on reset circuit. If the battery voltage dips or ramps up slowly when switching on, the transceiver can hang in an unknown SPI state (`LoRa init failed`). By connecting RST to **GPIO 14**, our firmware actively drives RST LOW for 10ms and HIGH for 10ms on every startup, ensuring a 100% reliable hardware reboot.
+> **Single-Rail Wiring Advantage:**
+> With this pin arrangement, every single control signal wire for both the OLED display and the LoRa transceiver runs to the **exact same right-hand pin rail** of the ESP32 DevKit:
+> * `D23` (OLED SDA)
+> * `D22` (OLED SCL)
+> * `D21` (LoRa MOSI)
+> * `D19` (LoRa MISO)
+> * `D18` (LoRa SCK)
+> * `D5`  (LoRa NSS / CS)
+> * `D15` (LoRa RST)
+> * `D4`  (Optional LoRa DIO0, if connected)
+>
+> This makes physical wire routing inside your transmitter case clean with zero wires crossing over the ESP32 board!
 
 ---
 
