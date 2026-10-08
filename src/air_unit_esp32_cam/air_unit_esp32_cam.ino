@@ -17,12 +17,12 @@
 #include <LoRa.h>
 
 // =================== PIN DEFINITIONS ===================
-// LoRa SPI Bus on ESP32-CAM SD card lines
-#define LORA_SCK       14
-#define LORA_MISO      2
-#define LORA_MOSI      13
-#define LORA_SS        15
-#define LORA_RST       12      // Hardware Reset pin (Header 1, Pin 3 on ESP32-CAM)
+// LoRa SPI Bus (Straight 4-wire physical ribbon: SCK, MISO, MOSI, NSS)
+#define LORA_SCK       13      // SPI Clock (Header 1, Pin 4)
+#define LORA_MISO      15      // SPI Master In Slave Out (Header 1, Pin 5)
+#define LORA_MOSI      14      // SPI Master Out Slave In (Header 1, Pin 6)
+#define LORA_SS        2       // SPI Chip Select (Header 1, Pin 7)
+#define LORA_RST       12      // Hardware Reset pin (Header 1, Pin 3)
 #define LORA_DIO0      -1
 
 // AI-Thinker OV2640 Camera Pin Map

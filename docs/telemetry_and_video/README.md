@@ -266,33 +266,33 @@ On the drone, the AI-Thinker ESP32-CAM uses its dual-core processor to handle MA
 | **T6** (UART6 TX) | **U0R** (GPIO 3) | F405 sends MAVLink telemetry to ESP32 |
 | **R6** (UART6 RX) | **U0T** (GPIO 1) | ESP32 sends waypoint commands to F405 |
 
-### B. ESP32-CAM to Air LoRa Ra-02 (SPI on SD Card Lines)
-Because the OV2640 camera occupies most pins on the ESP32-CAM, the Ra-02 connects over the SD card bus lines and GPIO 12:
+### B. ESP32-CAM to Air LoRa Ra-02 (SPI on Header 1)
+To allow a flat, uncrossed 4-conductor ribbon cable from the Ra-02 SPI lines (`SCK, MISO, MOSI, NSS`), the pins are mapped in exact sequential physical order on Header 1 (Left header, Front View):
 
-| Ra-02 Pin | ESP32-CAM Pin | Details |
-| :--- | :--- | :--- |
-| **3.3V** | **3V3** | Regulated 3.3V from ESP32-CAM |
-| **GND** | **GND** | Ground |
-| **NSS / CS** | **GPIO 15** | SPI Chip Select |
-| **SCK** | **GPIO 14** | SPI Clock |
-| **MOSI** | **GPIO 13** | SPI MOSI |
-| **MISO** | **GPIO 2** | SPI MISO |
-| **RST** | **GPIO 12** | Hardware Reset line (Header 1, Pin 3; pulsed on boot for clean SX1278 recovery) |
-| **DIO0** | *Not Connected* | Polling mode |
-| **ANT** | **16.4 cm Wire** | **Soldered directly to ANT pad on Ra-02** (pointing straight UP!) |
+| Ra-02 Pin | ESP32-CAM Pin | Physical Header Location | Details |
+| :--- | :--- | :--- | :--- |
+| **3.3V** | **3.3V** | **Header 2, Pin 1** (Top-Right) | Regulated 3.3V from ESP32-CAM LDO |
+| **GND** | **GND** | **Header 1, Pin 2** (Left) | Common ground reference |
+| **RST** | **GPIO 12** | **Header 1, Pin 3** (Left) | Hardware Reset line (pulsed LOW on startup) |
+| **SCK** | **GPIO 13** | **Header 1, Pin 4** (Left) | SPI Clock (mapped via `SPI.begin(13, 15, 14, 2)`) |
+| **MISO** | **GPIO 15** | **Header 1, Pin 5** (Left) | SPI Master In Slave Out |
+| **MOSI** | **GPIO 14** | **Header 1, Pin 6** (Left) | SPI Master Out Slave In |
+| **NSS / CS** | **GPIO 2** | **Header 1, Pin 7** (Left) | SPI Chip Select |
+| **DIO0** | *Not Connected* | — | Polling mode in firmware |
+| **ANT** | **16.4 cm Wire** | — | **Soldered directly to ANT pad on Ra-02** (pointing straight UP!) |
 
 > [!IMPORTANT]
-> **ESP32-CAM Pin Selection Rationale (Why GPIO 12):**
-> 1. **Continuous 5-Pin Header Block:** On the AI-Thinker 8-pin Header 1, pins 3 through 7 are:
->    * Pin 3: **GPIO 12** (RST)
->    * Pin 4: **GPIO 13** (MOSI)
->    * Pin 5: **GPIO 15** (NSS)
->    * Pin 6: **GPIO 14** (SCK)
->    * Pin 7: **GPIO 2** (MISO)
->    All five LoRa control lines sit side-by-side in a single clean row, allowing a neat 5-wire ribbon or female DuPont block with zero crossed wires!
-> 2. **Avoid GPIO 16 (PSRAM Conflict):** GPIO 16 is internally hardwired to the ESP32-CAM's external PSRAM chip select. Connecting anything to GPIO 16 corrupts camera frame memory and crashes the video stream.
-> 3. **Avoid GPIO 4 (Flashlight LED):** GPIO 4 is hardwired to the blinding white onboard flash LED. Holding it HIGH for LoRa reset would keep the flashlight burning continuously, wasting battery power and generating unnecessary heat.
-> 4. **Safe Boot State:** GPIO 12 is sampled during boot to set internal flash voltage. At power-on, the ESP32 internal pulldown keeps GPIO 12 LOW (3.3V flash mode), ensuring a normal boot sequence before our code claims it as an output and pulses reset.
+> **Why This Physical Pin Mapping is Ideal:**
+> 1. **Straight 4-Wire SPI Ribbon (Zero Crossed Wires):**
+>    The four SPI lines on the Ra-02 module (`SCK, MISO, MOSI, NSS`) plug straight into **Pins 4, 5, 6, 7** (`IO13, IO15, IO14, IO2`) on the left header of the ESP32-CAM without a single twist or wire cross!
+> 2. **Adjacent Ground and Reset:**
+>    Right above the SPI block on that same left header sit **Pin 2 (GND)** and **Pin 3 (GPIO 12 / RST)**, keeping almost the entire Ra-02 harness on the left header.
+> 3. **Only One Wire from the Right Header:**
+>    The only wire crossing from the right side is the single **3.3V power lead (Header 2, Pin 1)**.
+> 4. **Safety & Stability:**
+>    * Avoids **GPIO 16** (Header 2, Pin 2), which is internally hardwired to PSRAM CS and will crash the camera if touched.
+>    * Avoids **GPIO 4** (Header 1, Pin 8), which is hardwired to the blinding white flashlight LED.
+>    * Avoids **GPIO 0** (Header 2, Pin 3), which is the camera XCLK clock line and boot strap pin.
 
 ---
 
