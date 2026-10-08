@@ -157,7 +157,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-  <title>Vortex Air Recon | FPV Cockpit</title>
+  <title>Personal UFO | FPV Cockpit</title>
   <style>
     :root {
       --bg: #070a12;
@@ -273,7 +273,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
   <div class="top-bar">
     <div class="brand">
       <div class="brand-icon"></div>
-      <div class="title">VORTEX <span>AIR RECON</span></div>
+      <div class="title">PERSONAL UFO <span>FPV COCKPIT</span></div>
     </div>
     <div class="telemetry-badges">
       <div class="badge online"><span class="pulse-dot"></span>Stream :81</div>
@@ -476,7 +476,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       }
 
       // Persist to browser localStorage so refresh remembers tilt
-      localStorage.setItem('vortex_cam_rot', currentRotation);
+      localStorage.setItem('ufo_cam_rot', currentRotation);
       showToast(`ROTATED: ${currentRotation}°`);
     }
 
@@ -486,7 +486,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     }
 
     // Load saved rotation on startup
-    const savedRot = localStorage.getItem('vortex_cam_rot');
+    const savedRot = localStorage.getItem('ufo_cam_rot');
     if (savedRot !== null) {
       setLiveRotation(parseInt(savedRot));
     }
