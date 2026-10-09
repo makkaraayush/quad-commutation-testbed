@@ -243,6 +243,13 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     .viewport-card { background: #000; border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; position: relative; box-shadow: 0 8px 30px rgba(0,0,0,0.8); }
     .stream-frame { position: relative; width: 100%; min-height: 280px; display: flex; justify-content: center; align-items: center; background: #020408; overflow: hidden; transition: min-height 0.3s ease; }
     .stream-frame img { width: 100%; height: auto; display: block; object-fit: contain; transform-origin: center center; transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+    .stream-standby { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; background: radial-gradient(circle at center, rgba(15, 23, 42, 0.95), #020408); z-index: 5; text-align: center; padding: 20px; }
+    .stream-standby.hidden { display: none; }
+    .standby-icon { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; box-shadow: 0 0 15px var(--accent-subtle); color: var(--accent); font-weight: 900; font-size: 13px; letter-spacing: 1px; }
+    .standby-title { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+    .standby-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 14px; max-width: 260px; line-height: 1.4; }
+    .btn-start-stream { background: var(--accent); color: #000; font-weight: 800; font-size: 11px; text-transform: uppercase; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; box-shadow: 0 0 15px var(--accent-glow); transition: all 0.15s ease; }
+    .btn-start-stream:hover { transform: scale(1.04); box-shadow: 0 0 20px var(--accent-glow); }
 
     /* Tactical HUD Overlays */
     .hud-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; padding: 10px; display: flex; flex-direction: column; justify-content: space-between; }
@@ -330,7 +337,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       <div class="stream-frame" id="streamFrame">
         <div class="hud-layer">
           <div class="hud-top">
-            <div class="hud-tag rec-flag">LIVE STREAM</div>
+            <div class="hud-tag" id="streamStatusTag">STANDBY</div>
             <div class="hud-tag" id="hudResBadge">QVGA 320x240</div>
           </div>
           <div></div>
@@ -338,15 +345,21 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
         <div class="reticle" id="hudReticle">
           <div class="reticle-center"></div>
         </div>
-        <img id="streamImg" alt="Connecting to Port 81 Dedicated Stream...">
+        <div id="streamStandby" class="stream-standby">
+          <div class="standby-icon">CAM</div>
+          <div class="standby-title">Video Stream Standby</div>
+          <div class="standby-sub">Video streaming is paused to save drone battery, Wi-Fi bandwidth, and keep camera cool.</div>
+          <button class="btn-start-stream" onclick="toggleStream(true)">Start Live Video</button>
+        </div>
+        <img id="streamImg" alt="Stream Standby">
       </div>
 
       <div class="hud-bottom-bar">
         <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button class="action-btn" id="btnStreamToggle" onclick="toggleStream()">Start Stream</button>
           <button class="action-btn" onclick="captureSnapshot()">Snapshot</button>
           <button class="action-btn" id="btnQuickRotate" onclick="cycleQuickRotate()">Rot +90°</button>
           <button class="action-btn" id="btnReticle" onclick="toggleReticle()">Reticle</button>
-          <button class="action-btn" onclick="reconnectStream()">Reconnect</button>
         </div>
         <button class="action-btn" onclick="toggleFullscreen()">Expand</button>
       </div>
@@ -465,9 +478,37 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     const streamUrl = window.location.protocol + '//' + window.location.hostname + ':' + streamPort + '/stream';
     const streamImg = document.getElementById('streamImg');
     const streamFrame = document.getElementById('streamFrame');
-    
-    // Connect stream on page boot
-    streamImg.src = streamUrl;
+    const streamStandby = document.getElementById('streamStandby');
+    const btnStreamToggle = document.getElementById('btnStreamToggle');
+    const streamTag = document.getElementById('streamStatusTag');
+    let isStreaming = false;
+
+    // On-demand stream controller
+    function toggleStream(forceStart) {
+      if (forceStart === true || !isStreaming) {
+        isStreaming = true;
+        streamImg.src = streamUrl + '?t=' + Date.now();
+        streamStandby.classList.add('hidden');
+        btnStreamToggle.innerText = 'Pause Stream';
+        btnStreamToggle.classList.add('active');
+        if (streamTag) {
+          streamTag.innerText = 'LIVE STREAM';
+          streamTag.classList.add('rec-flag');
+        }
+        showToast('STREAM STARTED (:81)');
+      } else {
+        isStreaming = false;
+        streamImg.src = '';
+        streamStandby.classList.remove('hidden');
+        btnStreamToggle.innerText = 'Start Stream';
+        btnStreamToggle.classList.remove('active');
+        if (streamTag) {
+          streamTag.innerText = 'STANDBY';
+          streamTag.classList.remove('rec-flag');
+        }
+        showToast('STREAM PAUSED (IDLE)');
+      }
+    }
 
     let vflipState = 0;
     let hmirrorState = 0;
@@ -567,7 +608,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 
       fetch(`/control?var=framesize&val=${resVal}`)
         .then(() => {
-          setTimeout(reconnectStream, 350);
+          if (isStreaming) setTimeout(reconnectStream, 350);
         });
     }
 
@@ -594,8 +635,12 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 
     // Stream Reconnection Helper
     function reconnectStream() {
-      streamImg.src = streamUrl + '?t=' + Date.now();
-      showToast('STREAM RECONNECTED');
+      if (isStreaming) {
+        streamImg.src = streamUrl + '?t=' + Date.now();
+        showToast('STREAM RECONNECTED');
+      } else {
+        toggleStream(true);
+      }
     }
 
     // High-res Snapshot Downloader
