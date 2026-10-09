@@ -99,6 +99,24 @@ void initFlash() {
   #endif
 }
 
+// =================== AIR-GROUND DIAGNOSTIC PACKET ===================
+// 13-byte lightweight frame sent at 1 Hz from Air Unit to Ground Station
+struct __attribute__((packed)) AirDiagPacket {
+  uint8_t header[3];     // "$AG" -> { 0x24, 0x41, 0x47 }
+  uint32_t fcByteCount;  // Total bytes received from F405 FC UART
+  uint32_t loraPktCount; // Total LoRa packets transmitted
+  uint8_t flags;         // Status flags (bit 0 = radio ready)
+  uint8_t checksum;      // XOR checksum across preceding 12 bytes
+};
+
+static uint8_t calcChecksum(const uint8_t* data, size_t len) {
+  uint8_t cs = 0;
+  for (size_t i = 0; i < len; i++) {
+    cs ^= data[i];
+  }
+  return cs;
+}
+
 // =================== CORE 0: MAVLINK <-> LORA BRIDGE ===================
 void loraBridgeLoop(void * pvParameters) {
   uint8_t serialBuf[128];
@@ -147,6 +165,26 @@ void loraBridgeLoop(void * pvParameters) {
       while (LoRa.available()) {
         Serial.write((uint8_t)LoRa.read());
       }
+    }
+
+    // 3. Periodic Diagnostic Heartbeat (Every 1 second)
+    // Ensures Ground Station OLED always receives RF signal and FC byte count
+    static unsigned long lastAirDiagTime = 0;
+    if (millis() - lastAirDiagTime >= 1000) {
+      lastAirDiagTime = millis();
+      AirDiagPacket diag;
+      diag.header[0] = 0x24; // '$'
+      diag.header[1] = 0x41; // 'A'
+      diag.header[2] = 0x47; // 'G'
+      diag.fcByteCount = fcByteCount;
+      diag.loraPktCount = loraPktCount;
+      diag.flags = 1;
+      diag.checksum = calcChecksum((const uint8_t*)&diag, sizeof(diag) - 1);
+
+      LoRa.beginPacket();
+      LoRa.write((const uint8_t*)&diag, sizeof(diag));
+      LoRa.endPacket();
+      loraPktCount++;
     }
     
     // Yield to FreeRTOS scheduler to prevent watchdog resets

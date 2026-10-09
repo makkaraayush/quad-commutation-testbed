@@ -61,8 +61,28 @@ unsigned long lastTelemetryTime = 0;
 unsigned long lastDisplayUpdate  = 0;
 unsigned long lastBatCheckTime   = 0;
 bool oledReady = false;
-
 volatile uint32_t totalLoRaPacketsReceived = 0;
+volatile unsigned long lastAirPingTime = 0;
+volatile uint32_t airFcBytes = 0;
+volatile int lastPacketRssi = 0;
+
+// =================== AIR-GROUND DIAGNOSTIC PACKET ===================
+// 13-byte lightweight frame sent at 1 Hz from Air Unit to Ground Station
+struct __attribute__((packed)) AirDiagPacket {
+  uint8_t header[3];     // "$AG" -> { 0x24, 0x41, 0x47 }
+  uint32_t fcByteCount;  // Total bytes received from F405 FC UART
+  uint32_t loraPktCount; // Total LoRa packets transmitted
+  uint8_t flags;         // Status flags (bit 0 = radio ready)
+  uint8_t checksum;      // XOR checksum across preceding 12 bytes
+};
+
+static uint8_t calcChecksum(const uint8_t* data, size_t len) {
+  uint8_t cs = 0;
+  for (size_t i = 0; i < len; i++) {
+    cs ^= data[i];
+  }
+  return cs;
+}
 
 // =================== LIGHTWEIGHT MAVLINK PARSER ===================
 // Custom zero-overhead MAVLink v1 / v2 state machine parser.
@@ -186,21 +206,25 @@ void updateOLED() {
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
 
-  // Link alive watchdog: flag lost if no packet arrived in last 3.5 seconds
+  // Link alive watchdog: flag lost if no MAVLink packet arrived in last 3.5 seconds
   bool linkAlive = (millis() - lastTelemetryTime < 3500) && (lastTelemetryTime > 0);
+  bool airRfAlive = (millis() - lastAirPingTime < 3000) && (lastAirPingTime > 0);
 
-  // --- ROW 1: Flight Mode & GPS Satellites ---
+  // --- ROW 1: Flight Mode & GPS Satellites / RF Signal ---
   display.setTextSize(1);
   display.setCursor(0, 0);
   if (linkAlive) {
     display.print(flightMode);
+    display.setCursor(82, 0);
+    display.print("SAT:");
+    display.print(droneSats);
+  } else if (airRfAlive) {
+    display.print("LORA: OK (");
+    display.print(lastPacketRssi);
+    display.print("dBm)");
   } else {
-    display.print("NO TELEMETRY");
+    display.print("LORA: NO RF SIGNAL");
   }
-
-  display.setCursor(82, 0);
-  display.print("SAT:");
-  display.print(linkAlive ? droneSats : 0);
 
   // Header Divider Line
   display.drawLine(0, 10, 128, 10, SSD1306_WHITE);
@@ -227,16 +251,30 @@ void updateOLED() {
   // Middle Divider Line
   display.drawLine(0, 36, 128, 36, SSD1306_WHITE);
 
-  // --- ROW 3: Relative Altitude & GPS Coordinates ---
+  // --- ROW 3: Relative Altitude / FC UART Status ---
   display.setCursor(0, 40);
-  display.print("ALT: ");
   if (linkAlive) {
+    display.print("ALT: ");
     display.print(droneAltitude, 1);
     display.print(" m");
+  } else if (airRfAlive) {
+    if (airFcBytes == 0) {
+      display.print("FC UART: 0 B (IDLE)");
+    } else {
+      display.print("FC UART: ");
+      if (airFcBytes > 1024) {
+        display.print(airFcBytes / 1024.0, 1);
+        display.print(" KB");
+      } else {
+        display.print(airFcBytes);
+        display.print(" B");
+      }
+    }
   } else {
-    display.print("--.- m");
+    display.print("AWAITING AIR PING...");
   }
 
+  // --- ROW 4: GPS Coordinates / Telemetry Guidance ---
   display.setCursor(0, 52);
   if (linkAlive && droneLat != 0.0) {
     display.print(droneLat, 4);
@@ -244,6 +282,12 @@ void updateOLED() {
     display.print(droneLon, 4);
   } else if (linkAlive) {
     display.print("ACQUIRING GPS FIX");
+  } else if (airRfAlive) {
+    if (airFcBytes == 0) {
+      display.print("NO FC DATA -> CHK T6");
+    } else {
+      display.print("STREAMING MAVLINK...");
+    }
   } else {
     display.print("WAIT AIR | PKT:");
     display.print(totalLoRaPacketsReceived);
@@ -324,10 +368,28 @@ void loop() {
   int packetSize = LoRa.parsePacket();
   if (packetSize > 0) {
     totalLoRaPacketsReceived++;
-    while (LoRa.available()) {
-      uint8_t b = LoRa.read();
-      SerialBT.write(b);   // Send byte to QGroundControl on phone
-      parseMavlinkByte(b); // Extract telemetry for local OLED display
+    lastPacketRssi = LoRa.packetRssi();
+
+    uint8_t rxBuf[256];
+    int len = 0;
+    while (LoRa.available() && len < sizeof(rxBuf)) {
+      rxBuf[len++] = LoRa.read();
+    }
+
+    // Check if this is an Air Unit Diagnostic Heartbeat ("$AG", 13 bytes)
+    if (len == sizeof(AirDiagPacket) && rxBuf[0] == 0x24 && rxBuf[1] == 0x41 && rxBuf[2] == 0x47) {
+      AirDiagPacket* diag = (AirDiagPacket*)rxBuf;
+      if (diag->checksum == calcChecksum(rxBuf, sizeof(AirDiagPacket) - 1)) {
+        lastAirPingTime = millis();
+        airFcBytes = diag->fcByteCount;
+        // Cleanly handled internal diagnostic heartbeat; do not forward to QGroundControl
+      }
+    } else {
+      // Forward standard MAVLink telemetry bytes to Bluetooth and local OLED parser
+      for (int i = 0; i < len; i++) {
+        SerialBT.write(rxBuf[i]);   // Send byte to QGroundControl on phone
+        parseMavlinkByte(rxBuf[i]); // Extract telemetry for local OLED display
+      }
     }
   }
 
