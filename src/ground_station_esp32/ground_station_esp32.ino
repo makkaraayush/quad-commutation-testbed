@@ -266,16 +266,16 @@ void updateOLED() {
     return;
   }
 
-  // If telemetry link is alive: Run Option B Asymmetric Auto-Carousel (14s total)
+  // If telemetry link is alive: Run Option B Asymmetric Auto-Carousel (17s total)
   if (linkAlive) {
-    // Page 1: 0 to 6999 ms (7.0 seconds) -> Fighter Jet HUD
-    // Page 2: 7000 to 10499 ms (3.5 seconds) -> GPS Retrieval Deck
-    // Page 3: 10500 to 13999 ms (3.5 seconds) -> RF Link Diagnostics
-    unsigned long cycle = millis() % 14000;
-    int page = (cycle < 7000) ? 1 : ((cycle < 10500) ? 2 : 3);
+    // Page 1: 0 to 9999 ms (10.0 seconds) -> Fighter Jet HUD
+    // Page 2: 10000 to 13499 ms (3.5 seconds) -> GPS Retrieval Deck
+    // Page 3: 13500 to 16999 ms (3.5 seconds) -> RF Link Diagnostics
+    unsigned long cycle = millis() % 17000;
+    int page = (cycle < 10000) ? 1 : ((cycle < 13500) ? 2 : 3);
 
     if (page == 1) {
-      // ===== PAGE 1: FIGHTER JET HUD (7.0s) =====
+      // ===== PAGE 1: FIGHTER JET HUD (10.0s) =====
       display.setTextSize(1);
       display.setCursor(0, 0);
       display.print(flightMode);
@@ -397,9 +397,6 @@ void updateOLED() {
     } else {
       display.print("LORA: NO RF SIGNAL");
     }
-
-    display.setCursor(82, 0);
-    display.print("SAT:0");
 
     display.drawLine(0, 10, 128, 10, SSD1306_WHITE);
 
