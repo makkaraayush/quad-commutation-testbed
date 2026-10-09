@@ -53,6 +53,11 @@ float droneLat          = 0.0;
 float droneLon          = 0.0;
 int   droneSats         = 0;
 char  flightMode[12]    = "DISARMED";
+float droneSpeed        = 0.0;
+int   droneHeading      = 0;
+float droneDistHome     = 0.0;
+float homeLat           = 0.0;
+float homeLon           = 0.0;
 
 float stationBatVolts   = 0.0;
 int   stationBatPct     = 0;
@@ -157,7 +162,7 @@ void parseMavlinkByte(uint8_t c) {
           droneBatVolts = mVolts / 1000.0;
           droneBatPct = constrain((int)((droneBatVolts - 10.5) / (12.6 - 10.5) * 100.0), 0, 100);
         }
-        // 3. GLOBAL_POSITION_INT (Message #33): Lat, Lon, and Relative Altitude
+        // 3. GLOBAL_POSITION_INT (Message #33): Lat, Lon, Altitude, Speed, Heading
         else if (msgId == 33 && payloadLen >= 28) {
           int32_t lat = (int32_t)(buf[4] | (buf[5] << 8) | (buf[6] << 16) | (buf[7] << 24));
           int32_t lon = (int32_t)(buf[8] | (buf[9] << 8) | (buf[10] << 16) | (buf[11] << 24));
@@ -165,6 +170,21 @@ void parseMavlinkByte(uint8_t c) {
           droneLat = lat / 1e7;
           droneLon = lon / 1e7;
           droneAltitude = relAltMm / 1000.0;
+
+          int16_t vx = (int16_t)(buf[20] | (buf[21] << 8));
+          int16_t vy = (int16_t)(buf[22] | (buf[23] << 8));
+          droneSpeed = (sqrt((float)vx*vx + (float)vy*vy) / 100.0) * 3.6; // km/h
+          droneHeading = (uint16_t)(buf[24] | (buf[25] << 8)) / 100;      // degrees
+
+          if (homeLat == 0.0 && droneLat != 0.0 && droneSats >= 6) {
+            homeLat = droneLat;
+            homeLon = droneLon;
+          }
+          if (homeLat != 0.0) {
+            float dLat = (droneLat - homeLat) * 111319.5;
+            float dLon = (droneLon - homeLon) * 111319.5 * cos(homeLat * 0.01745329);
+            droneDistHome = sqrt(dLat*dLat + dLon*dLon);
+          }
         }
         // 4. GPS_RAW_INT (Message #24): Satellites Visible
         else if (msgId == 24 && payloadLen >= 30) {
@@ -210,87 +230,220 @@ void updateOLED() {
   bool linkAlive = (millis() - lastTelemetryTime < 3500) && (lastTelemetryTime > 0);
   bool airRfAlive = (millis() - lastAirPingTime < 3000) && (lastAirPingTime > 0);
 
-  // --- ROW 1: Flight Mode & GPS Satellites / RF Signal ---
-  display.setTextSize(1);
-  display.setCursor(0, 0);
-  if (linkAlive) {
-    display.print(flightMode);
-    display.setCursor(82, 0);
-    display.print("SAT:");
-    display.print(droneSats);
-  } else if (airRfAlive) {
-    display.print("LORA: OK (");
-    display.print(lastPacketRssi);
-    display.print("dBm)");
-  } else {
-    display.print("LORA: NO RF SIGNAL");
-  }
+  // CRITICAL BATTERY ALERT: Flashes if Drone 3S LiPo drops below 10.7V
+  bool lowBatWarning = linkAlive && (droneBatVolts > 5.0) && (droneBatVolts < 10.7);
 
-  // Header Divider Line
-  display.drawLine(0, 10, 128, 10, SSD1306_WHITE);
+  if (lowBatWarning) {
+    // High-priority blinking alert banner (overrides carousel)
+    bool blink = (millis() / 500) % 2;
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print(blink ? "! ! ! WARNING ! ! !" : "  CRITICAL BATTERY  ");
+    display.drawLine(0, 10, 128, 10, SSD1306_WHITE);
 
-  // --- ROW 2: Drone Battery & Transmitter Station Battery ---
-  display.setCursor(0, 14);
-  display.print("DRN:");
-  if (linkAlive) {
+    display.setCursor(0, 16);
+    display.print("DRN BAT: ");
     display.print(droneBatVolts, 1);
     display.print("V (");
     display.print(droneBatPct);
     display.print("%)");
-  } else {
-    display.print("--.-V (--%)");
-  }
 
-  display.setCursor(0, 25);
-  display.print("TX :");
-  display.print(stationBatVolts, 2);
-  display.print("V (");
-  display.print(stationBatPct);
-  display.print("%)");
+    display.setCursor(0, 28);
+    display.print("LAND IMMEDIATELY!");
 
-  // Middle Divider Line
-  display.drawLine(0, 36, 128, 36, SSD1306_WHITE);
+    display.drawLine(0, 40, 128, 40, SSD1306_WHITE);
 
-  // --- ROW 3: Relative Altitude / FC UART Status ---
-  display.setCursor(0, 40);
-  if (linkAlive) {
+    display.setCursor(0, 46);
     display.print("ALT: ");
     display.print(droneAltitude, 1);
-    display.print(" m");
-  } else if (airRfAlive) {
-    if (airFcBytes == 0) {
-      display.print("FC UART: 0 B (IDLE)");
-    } else {
-      display.print("FC UART: ");
-      if (airFcBytes > 1024) {
-        display.print(airFcBytes / 1024.0, 1);
-        display.print(" KB");
-      } else {
-        display.print(airFcBytes);
-        display.print(" B");
-      }
-    }
-  } else {
-    display.print("AWAITING AIR PING...");
+    display.print("m  SAT:");
+    display.print(droneSats);
+
+    display.setCursor(0, 56);
+    display.print("RTL TRIGGER SUGGESTED");
+
+    display.display();
+    return;
   }
 
-  // --- ROW 4: GPS Coordinates / Telemetry Guidance ---
-  display.setCursor(0, 52);
-  if (linkAlive && droneLat != 0.0) {
-    display.print(droneLat, 4);
-    display.print(",");
-    display.print(droneLon, 4);
-  } else if (linkAlive) {
-    display.print("ACQUIRING GPS FIX");
-  } else if (airRfAlive) {
-    if (airFcBytes == 0) {
-      display.print("NO FC DATA -> CHK T6");
+  // If telemetry link is alive: Run Option B Asymmetric Auto-Carousel (14s total)
+  if (linkAlive) {
+    // Page 1: 0 to 6999 ms (7.0 seconds) -> Fighter Jet HUD
+    // Page 2: 7000 to 10499 ms (3.5 seconds) -> GPS Retrieval Deck
+    // Page 3: 10500 to 13999 ms (3.5 seconds) -> RF Link Diagnostics
+    unsigned long cycle = millis() % 14000;
+    int page = (cycle < 7000) ? 1 : ((cycle < 10500) ? 2 : 3);
+
+    if (page == 1) {
+      // ===== PAGE 1: FIGHTER JET HUD (7.0s) =====
+      display.setTextSize(1);
+      display.setCursor(0, 0);
+      display.print(flightMode);
+      display.setCursor(76, 0);
+      display.print("S:");
+      display.print(droneSats);
+      display.print(" ");
+      if (lastPacketRssi > -65) display.print("[|||]");
+      else if (lastPacketRssi > -80) display.print("[||.]");
+      else if (lastPacketRssi > -95) display.print("[|..]");
+      else display.print("[...]");
+
+      display.drawLine(0, 10, 128, 10, SSD1306_WHITE);
+
+      display.setCursor(0, 14);
+      display.print("DRN: ");
+      display.print(droneBatVolts, 1);
+      display.print("V (");
+      display.print(droneBatPct);
+      display.print("%)");
+
+      display.setCursor(0, 25);
+      display.print("TX : ");
+      display.print(stationBatVolts, 2);
+      display.print("V (");
+      display.print(stationBatPct);
+      display.print("%)");
+
+      display.drawLine(0, 36, 128, 36, SSD1306_WHITE);
+
+      display.setCursor(0, 40);
+      display.print("ALT: ");
+      display.print(droneAltitude, 1);
+      display.print("m  SPD:");
+      display.print((int)droneSpeed);
+      display.print("kph");
+
+      display.setCursor(0, 52);
+      display.print("DST: ");
+      display.print((int)droneDistHome);
+      display.print("m   [o . .]");
+
+    } else if (page == 2) {
+      // ===== PAGE 2: GPS RETRIEVAL DECK (3.5s) =====
+      display.setTextSize(1);
+      display.setCursor(0, 0);
+      display.print("GPS RETRIEVAL DECK");
+      display.setCursor(110, 0);
+      display.print(droneSats);
+
+      display.drawLine(0, 10, 128, 10, SSD1306_WHITE);
+
+      display.setCursor(0, 14);
+      display.print("LAT: ");
+      if (droneLat != 0.0) display.print(droneLat, 5); else display.print("NO GPS 3D FIX");
+
+      display.setCursor(0, 25);
+      display.print("LON: ");
+      if (droneLon != 0.0) display.print(droneLon, 5); else display.print("ACQUIRING...");
+
+      display.drawLine(0, 36, 128, 36, SSD1306_WHITE);
+
+      display.setCursor(0, 40);
+      display.print("ALT: ");
+      display.print(droneAltitude, 1);
+      display.print("m  HDG:");
+      display.print(droneHeading);
+      display.print("*");
+
+      display.setCursor(0, 52);
+      display.print("DST: ");
+      display.print((int)droneDistHome);
+      display.print("m   [. o .]");
+
     } else {
-      display.print("STREAMING MAVLINK...");
+      // ===== PAGE 3: RF & LINK STATUS (3.5s) =====
+      display.setTextSize(1);
+      display.setCursor(0, 0);
+      display.print("RF & LINK STATUS");
+
+      display.drawLine(0, 10, 128, 10, SSD1306_WHITE);
+
+      display.setCursor(0, 14);
+      display.print("LORA: ");
+      display.print(lastPacketRssi);
+      display.print(" dBm");
+
+      display.setCursor(0, 25);
+      display.print("BT  : ");
+      display.print(SerialBT.hasClient() ? "PHONE CONNECTED" : "AWAITING PHONE");
+
+      display.drawLine(0, 36, 128, 36, SSD1306_WHITE);
+
+      display.setCursor(0, 40);
+      display.print("PKT : ");
+      display.print(totalLoRaPacketsReceived);
+      display.print(" TOTAL");
+
+      display.setCursor(0, 52);
+      display.print("FC  : ");
+      if (airFcBytes > 1024) {
+        display.print(airFcBytes / 1024.0, 1);
+        display.print("KB");
+      } else {
+        display.print(airFcBytes);
+        display.print("B");
+      }
+      display.print("   [. . o]");
     }
+
   } else {
-    display.print("WAIT AIR | PKT:");
-    display.print(totalLoRaPacketsReceived);
+    // Telemetry not connected: show RF Link & FC UART connection diagnostics
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    if (airRfAlive) {
+      display.print("LORA: OK (");
+      display.print(lastPacketRssi);
+      display.print("dBm)");
+    } else {
+      display.print("LORA: NO RF SIGNAL");
+    }
+
+    display.setCursor(82, 0);
+    display.print("SAT:0");
+
+    display.drawLine(0, 10, 128, 10, SSD1306_WHITE);
+
+    display.setCursor(0, 14);
+    display.print("DRN: --.-V (--%)");
+
+    display.setCursor(0, 25);
+    display.print("TX :");
+    display.print(stationBatVolts, 2);
+    display.print("V (");
+    display.print(stationBatPct);
+    display.print("%)");
+
+    display.drawLine(0, 36, 128, 36, SSD1306_WHITE);
+
+    display.setCursor(0, 40);
+    if (airRfAlive) {
+      if (airFcBytes == 0) {
+        display.print("FC UART: 0 B (IDLE)");
+      } else {
+        display.print("FC UART: ");
+        if (airFcBytes > 1024) {
+          display.print(airFcBytes / 1024.0, 1);
+          display.print(" KB");
+        } else {
+          display.print(airFcBytes);
+          display.print(" B");
+        }
+      }
+    } else {
+      display.print("AWAITING AIR PING...");
+    }
+
+    display.setCursor(0, 52);
+    if (airRfAlive) {
+      if (airFcBytes == 0) {
+        display.print("NO FC DATA -> CHK T6");
+      } else {
+        display.print("STREAMING MAVLINK...");
+      }
+    } else {
+      display.print("WAIT AIR | PKT:");
+      display.print(totalLoRaPacketsReceived);
+    }
   }
 
   display.display();

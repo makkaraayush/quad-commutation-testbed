@@ -68,6 +68,16 @@ volatile bool loraReady = false;
 volatile uint32_t fcByteCount = 0;
 volatile uint32_t loraPktCount = 0;
 
+// Decoded MAVLink Telemetry States (displayed in Web Cockpit OSD)
+char flightMode[14] = "DISARMED";
+volatile bool droneArmed = false;
+volatile float droneBatVolts = 0.0;
+volatile int droneBatPct = 0;
+volatile float droneAltitude = 0.0;
+volatile int droneSats = 0;
+volatile float droneSpeed = 0.0;
+volatile unsigned long lastMavlinkTime = 0;
+
 httpd_handle_t camera_httpd = NULL; // Port 80 (UI & Real-time Controls)
 httpd_handle_t stream_httpd = NULL; // Port 81 (Dedicated Stream Worker)
 TaskHandle_t LoRaBridgeTask;
@@ -117,6 +127,99 @@ static uint8_t calcChecksum(const uint8_t* data, size_t len) {
   return cs;
 }
 
+// =================== AIR UNIT MAVLINK PARSER ===================
+// Extracts flight mode, battery, altitude, sats, and speed for Web Cockpit OSD
+void parseAirMavlinkByte(uint8_t c) {
+  static uint8_t state = 0;
+  static uint8_t payloadLen = 0;
+  static uint32_t msgId = 0;
+  static uint8_t buf[64];
+  static uint16_t bytesRead = 0;
+  static unsigned long lastByteTime = 0;
+
+  if (state != 0 && (millis() - lastByteTime > 150)) {
+    state = 0;
+  }
+  lastByteTime = millis();
+
+  switch (state) {
+    case 0:
+      if (c == 0xFD) state = 1;       // MAVLink 2
+      else if (c == 0xFE) state = 10; // MAVLink 1
+      break;
+
+    // MAVLink 2
+    case 1: payloadLen = c; state = 2; break;
+    case 2: state = 3; break;
+    case 3: state = 4; break;
+    case 4: state = 5; break;
+    case 5: state = 6; break;
+    case 6: state = 7; break;
+    case 7: msgId = c; state = 8; break;
+    case 8: msgId |= ((uint32_t)c << 8); state = 9; break;
+    case 9: msgId |= ((uint32_t)c << 16); state = 20; bytesRead = 0; break;
+
+    // MAVLink 1
+    case 10: payloadLen = c; state = 11; break;
+    case 11: state = 12; break;
+    case 12: state = 13; break;
+    case 13: state = 14; break;
+    case 14: msgId = c; state = 20; bytesRead = 0; break;
+
+    // Payload
+    case 20:
+      if (bytesRead < sizeof(buf)) {
+        buf[bytesRead] = c;
+      }
+      bytesRead++;
+
+      if (bytesRead >= payloadLen) {
+        lastMavlinkTime = millis();
+
+        // 1. HEARTBEAT (Msg #0)
+        if (msgId == 0 && payloadLen >= 9) {
+          uint32_t customMode = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24);
+          droneArmed = (buf[6] & 128) != 0;
+          switch (customMode) {
+            case 0:  strcpy(flightMode, "STABILIZE"); break;
+            case 2:  strcpy(flightMode, "ALT_HOLD");  break;
+            case 3:  strcpy(flightMode, "AUTO");      break;
+            case 5:  strcpy(flightMode, "LOITER");    break;
+            case 6:  strcpy(flightMode, "RTL");       break;
+            case 9:  strcpy(flightMode, "LAND");      break;
+            case 16: strcpy(flightMode, "POSHOLD");   break;
+            case 15: strcpy(flightMode, "AUTOTUNE");  break;
+            default: strcpy(flightMode, droneArmed ? "ARMED" : "DISARMED"); break;
+          }
+        }
+        // 2. SYS_STATUS (Msg #1)
+        else if (msgId == 1 && payloadLen >= 31) {
+          uint16_t mVolts = buf[14] | (buf[15] << 8);
+          droneBatVolts = mVolts / 1000.0;
+          droneBatPct = constrain((int)((droneBatVolts - 10.5) / (12.6 - 10.5) * 100.0), 0, 100);
+        }
+        // 3. GLOBAL_POSITION_INT (Msg #33)
+        else if (msgId == 33 && payloadLen >= 28) {
+          int32_t relAltMm = (int32_t)(buf[16] | (buf[17] << 8) | (buf[18] << 16) | (buf[19] << 24));
+          droneAltitude = relAltMm / 1000.0;
+          int16_t vx = (int16_t)(buf[20] | (buf[21] << 8));
+          int16_t vy = (int16_t)(buf[22] | (buf[23] << 8));
+          droneSpeed = (sqrt((float)vx*vx + (float)vy*vy) / 100.0) * 3.6; // km/h
+        }
+        // 4. GPS_RAW_INT (Msg #24)
+        else if (msgId == 24 && payloadLen >= 30) {
+          droneSats = buf[29];
+        }
+
+        state = 30;
+      }
+      break;
+
+    case 30: state = 31; break;
+    case 31: state = 0; break;
+  }
+}
+
 // =================== CORE 0: MAVLINK <-> LORA BRIDGE ===================
 void loraBridgeLoop(void * pvParameters) {
   uint8_t serialBuf[128];
@@ -153,6 +256,11 @@ void loraBridgeLoop(void * pvParameters) {
       Serial.readBytes(serialBuf, toRead);
       fcByteCount += toRead;
       
+      // Parse telemetry for local Web Cockpit OSD
+      for (size_t i = 0; i < toRead; i++) {
+        parseAirMavlinkByte(serialBuf[i]);
+      }
+
       LoRa.beginPacket();
       LoRa.write(serialBuf, toRead);
       LoRa.endPacket();
@@ -326,8 +434,12 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     </div>
     <div class="telemetry-badges">
       <div class="badge online"><span class="pulse-dot"></span>Stream :81</div>
-      <div class="badge radio" id="loraBadge">LoRa 433 MHz [Core 0]</div>
-      <div class="badge" id="fcBadge">FC Telemetry: 0 B</div>
+      <div class="badge radio" id="loraBadge">LoRa 433 MHz</div>
+      <div class="badge" id="fcBadge">FC: 0 B</div>
+      <div class="badge" id="modeBadge">DISARMED</div>
+      <div class="badge" id="batBadge">--.-V (--%)</div>
+      <div class="badge" id="altBadge">ALT: 0.0m</div>
+      <div class="badge" id="satBadge">SAT: 0</div>
     </div>
   </div>
 
@@ -337,10 +449,13 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       <div class="stream-frame" id="streamFrame">
         <div class="hud-layer">
           <div class="hud-top">
-            <div class="hud-tag" id="streamStatusTag">STANDBY</div>
-            <div class="hud-tag" id="hudResBadge">QVGA 320x240</div>
+            <div class="hud-tag" id="hudModeTag">DISARMED</div>
+            <div class="hud-tag" id="hudTimerTag">00:00 | SAT: 0</div>
           </div>
-          <div></div>
+          <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+            <div class="hud-tag" id="hudBatTag">BAT: --.-V (--%)</div>
+            <div class="hud-tag" id="hudAltTag">ALT: 0.0m | 0kph</div>
+          </div>
         </div>
         <div class="reticle" id="hudReticle">
           <div class="reticle-center"></div>
@@ -357,6 +472,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       <div class="hud-bottom-bar">
         <div style="display: flex; gap: 6px; flex-wrap: wrap;">
           <button class="action-btn" id="btnStreamToggle" onclick="toggleStream()">Start Stream</button>
+          <button class="action-btn" id="btnRecordToggle" onclick="toggleRecord()" style="color:var(--red);">Record</button>
           <button class="action-btn" onclick="captureSnapshot()">Snapshot</button>
           <button class="action-btn" id="btnQuickRotate" onclick="cycleQuickRotate()">Rot +90°</button>
           <button class="action-btn" id="btnReticle" onclick="toggleReticle()">Reticle</button>
@@ -659,11 +775,135 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       }
     }
 
-    // Dynamic telemetry status polling
+    // Dynamic telemetry status polling & FPV OSD Engine
+    let latestTelem = { mode: 'DISARMED', armed: false, batV: 0, batPct: 0, alt: 0, sats: 0, spd: 0, telem: false };
+    let bootTime = Date.now();
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let recordCanvas = document.createElement('canvas');
+    let recordCtx = recordCanvas.getContext('2d');
+    let recordInterval = null;
+    let recordStartTime = 0;
+    let isRecording = false;
+
+    function formatTimer(ms) {
+      const totalSec = Math.floor((ms || (Date.now() - bootTime)) / 1000);
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    // In-Browser DVR Recording Engine with Burned-In OSD Telemetry
+    function toggleRecord() {
+      if (!isRecording) {
+        startRecording();
+      } else {
+        stopRecording();
+      }
+    }
+
+    function startRecording() {
+      if (!isStreaming) {
+        showToast('START STREAM FIRST TO RECORD');
+        return;
+      }
+      recordedChunks = [];
+      const w = streamImg.naturalWidth || 320;
+      const h = streamImg.naturalHeight || 240;
+      recordCanvas.width = w;
+      recordCanvas.height = h;
+
+      const canvasStream = recordCanvas.captureStream(25);
+      let options = { mimeType: 'video/webm;codecs=vp8' };
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/webm' };
+      }
+
+      try {
+        mediaRecorder = new MediaRecorder(canvasStream, options);
+      } catch (e) {
+        showToast('RECORDING NOT SUPPORTED');
+        return;
+      }
+
+      mediaRecorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ufo_flight_' + new Date().toISOString().replace(/[:.]/g, '-') + '.webm';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 1000);
+        showToast('RECORDING SAVED!');
+      };
+
+      mediaRecorder.start(1000);
+      isRecording = true;
+      recordStartTime = Date.now();
+
+      // DVR Render Loop: Composites live video + burned-in FPV OSD Telemetry
+      recordInterval = setInterval(() => {
+        if (!isRecording || !streamImg.complete || !streamImg.naturalWidth) return;
+        if (recordCanvas.width !== streamImg.naturalWidth) {
+          recordCanvas.width = streamImg.naturalWidth;
+          recordCanvas.height = streamImg.naturalHeight;
+        }
+        const cw = recordCanvas.width;
+        const ch = recordCanvas.height;
+
+        recordCtx.drawImage(streamImg, 0, 0, cw, ch);
+
+        // Burn-in OSD Telemetry
+        recordCtx.font = 'bold 12px monospace';
+        recordCtx.fillStyle = 'rgba(2, 6, 23, 0.7)';
+        recordCtx.fillRect(6, 6, 130, 20);
+        recordCtx.fillRect(cw - 126, 6, 120, 20);
+        recordCtx.fillRect(6, ch - 26, 140, 20);
+        recordCtx.fillRect(cw - 136, ch - 26, 130, 20);
+
+        recordCtx.fillStyle = latestTelem.armed ? '#00ff9d' : '#f59e0b';
+        recordCtx.fillText((latestTelem.armed ? 'ARM ' : 'DISARM ') + (latestTelem.mode || 'STAB'), 10, 20);
+
+        recordCtx.fillStyle = '#ffffff';
+        recordCtx.fillText('SAT:' + (latestTelem.sats || 0) + ' ' + formatTimer(), cw - 120, 20);
+
+        recordCtx.fillStyle = '#00f0ff';
+        recordCtx.fillText('BAT:' + (latestTelem.batV ? latestTelem.batV.toFixed(1) + 'V' : '--V') + ' (' + (latestTelem.batPct || 0) + '%)', 10, ch - 12);
+
+        recordCtx.fillText('ALT:' + (latestTelem.alt ? latestTelem.alt.toFixed(1) + 'm' : '0m') + ' ' + (latestTelem.spd ? latestTelem.spd.toFixed(0) : '0') + 'kph', cw - 130, ch - 12);
+      }, 40);
+
+      const recBtn = document.getElementById('btnRecordToggle');
+      recBtn.innerText = 'REC [00:00]';
+      recBtn.classList.add('active');
+      showToast('RECORDING STARTED');
+    }
+
+    function stopRecording() {
+      if (!isRecording) return;
+      isRecording = false;
+      clearInterval(recordInterval);
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+      const recBtn = document.getElementById('btnRecordToggle');
+      recBtn.innerText = 'Record';
+      recBtn.classList.remove('active');
+    }
+
     function pollStatus() {
       fetch('/status')
         .then(r => r.json())
         .then(data => {
+          latestTelem = data;
           const badge = document.getElementById('loraBadge');
           if (badge) {
             badge.innerText = data.lora ? 'LoRa [Armed]' : 'LoRa [Standby]';
@@ -672,15 +912,56 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
           const fcBadge = document.getElementById('fcBadge');
           if (fcBadge) {
             if (data.fcBytes > 1024) {
-              fcBadge.innerText = 'FC: ' + (data.fcBytes / 1024).toFixed(1) + ' KB (' + data.pkts + ' TX)';
+              fcBadge.innerText = 'FC: ' + (data.fcBytes / 1024).toFixed(1) + ' KB';
               fcBadge.className = 'badge online';
             } else if (data.fcBytes > 0) {
-              fcBadge.innerText = 'FC: ' + data.fcBytes + ' B (' + data.pkts + ' TX)';
+              fcBadge.innerText = 'FC: ' + data.fcBytes + ' B';
               fcBadge.className = 'badge online';
             } else {
-              fcBadge.innerText = 'FC Telemetry: 0 B';
+              fcBadge.innerText = 'FC: 0 B';
               fcBadge.className = 'badge';
             }
+          }
+          
+          // Flight mode badge & OSD
+          const modeBadge = document.getElementById('modeBadge');
+          if (modeBadge) {
+            modeBadge.innerText = (data.armed ? 'ARM ' : '') + data.mode;
+            modeBadge.className = data.telem ? 'badge online' : 'badge';
+          }
+          const hudModeTag = document.getElementById('hudModeTag');
+          if (hudModeTag) {
+            hudModeTag.innerText = (data.armed ? 'ARMED ' : 'DISARMED ') + data.mode;
+            hudModeTag.style.color = data.armed ? 'var(--green)' : 'var(--amber)';
+          }
+
+          // Battery badge & OSD
+          const batBadge = document.getElementById('batBadge');
+          if (batBadge) {
+            batBadge.innerText = data.batV > 5 ? (data.batV.toFixed(1) + 'V (' + data.batPct + '%)') : '--.-V (--%)';
+            batBadge.className = (data.batPct > 20) ? 'badge online' : 'badge';
+          }
+          const hudBatTag = document.getElementById('hudBatTag');
+          if (hudBatTag) {
+            hudBatTag.innerText = 'BAT: ' + (data.batV > 5 ? (data.batV.toFixed(1) + 'V (' + data.batPct + '%)') : '--.-V');
+          }
+
+          // Altitude & Speed OSD
+          const altBadge = document.getElementById('altBadge');
+          if (altBadge) altBadge.innerText = 'ALT: ' + data.alt.toFixed(1) + 'm';
+          const hudAltTag = document.getElementById('hudAltTag');
+          if (hudAltTag) hudAltTag.innerText = 'ALT: ' + data.alt.toFixed(1) + 'm | ' + data.spd.toFixed(0) + 'kph';
+
+          // Satellites
+          const satBadge = document.getElementById('satBadge');
+          if (satBadge) satBadge.innerText = 'SAT: ' + data.sats;
+          const hudTimerTag = document.getElementById('hudTimerTag');
+          if (hudTimerTag) hudTimerTag.innerText = formatTimer() + ' | SAT: ' + data.sats;
+
+          // Recording timer ticker
+          if (isRecording) {
+            const recElapsed = Date.now() - recordStartTime;
+            document.getElementById('btnRecordToggle').innerText = 'REC [' + formatTimer(recElapsed) + ']';
           }
         })
         .catch(() => {});
@@ -817,9 +1098,15 @@ static esp_err_t control_handler(httpd_req_t *req) {
 
 // 5. System Status Handler (Port 80)
 static esp_err_t status_handler(httpd_req_t *req) {
-  char json[160];
-  snprintf(json, sizeof(json), "{\"lora\":%s,\"fcBytes\":%u,\"pkts\":%u,\"flash\":%d,\"res\":%d}", 
-           loraReady ? "true" : "false", fcByteCount, loraPktCount, currentFlashDuty, currentFramesize);
+  bool telemAlive = (millis() - lastMavlinkTime < 3500) && (lastMavlinkTime > 0);
+  char json[260];
+  snprintf(json, sizeof(json), 
+    "{\"lora\":%s,\"fcBytes\":%u,\"pkts\":%u,\"flash\":%d,\"res\":%d,"
+    "\"telem\":%s,\"mode\":\"%s\",\"armed\":%s,\"batV\":%.1f,\"batPct\":%d,"
+    "\"alt\":%.1f,\"sats\":%d,\"spd\":%.1f}", 
+    loraReady ? "true" : "false", fcByteCount, loraPktCount, currentFlashDuty, currentFramesize,
+    telemAlive ? "true" : "false", flightMode, droneArmed ? "true" : "false",
+    droneBatVolts, droneBatPct, droneAltitude, droneSats, droneSpeed);
   httpd_resp_set_type(req, "application/json");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   return httpd_resp_send(req, json, strlen(json));
