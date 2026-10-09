@@ -343,16 +343,16 @@ Because LoRa has a narrower bandwidth window than a direct USB cable, we configu
 
 1. Connect the F405 flight controller to Mission Planner via USB.
 2. Go to **Config/Tuning -> Full Parameter List**.
-3. Set the following parameters (assuming UART6 on `T6`/`R6`):
+3. Set the following parameters (UART6 on pads `T6`/`R6` binds to MAVLink Channel 1):
    - `SERIAL6_PROTOCOL` = **2** (MAVLink2)
    - `SERIAL6_BAUD` = **19** (19200 baud)
-   - `SR6_POSITION` = **2** (GPS position & altitude at 2 Hz)
-   - `SR6_EXT_STAT` = **2** (Battery voltage and arm state at 2 Hz)
-   - `SR6_EXTRA1` = **4** (Attitude / artificial horizon at 4 Hz)
-   - `SR6_EXTRA2` = **2** (Speed and HUD at 2 Hz)
-   - `SR6_RAW_SENS` = **0** (Disables raw IMU vibration data to save bandwidth)
-   - `SR6_RC_CHAN` = **0** (Disables raw servo channel streams)
-4. Click **Write Params**.
+   - `SR1_POSITION` = **2** (GPS position & altitude at 2 Hz)
+   - `SR1_EXT_STAT` = **2** (Battery voltage and arm state at 2 Hz)
+   - `SR1_EXTRA1` = **4** (Attitude / artificial horizon at 4 Hz)
+   - `SR1_EXTRA2` = **2** (Speed and HUD at 2 Hz)
+   - `SR1_RAW_SENS` = **0** (Disables raw IMU vibration data to save bandwidth)
+   - `SR1_RC_CHAN` = **0** (Disables raw servo channel streams)
+4. Click **Write Params** and reboot the flight controller.
 
 ---
 
