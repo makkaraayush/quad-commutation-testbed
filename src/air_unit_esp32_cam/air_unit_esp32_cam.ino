@@ -65,6 +65,8 @@ int currentVflip      = 0;
 int currentHmirror    = 0;
 int currentEffect     = 0;
 volatile bool loraReady = false;
+volatile uint32_t fcByteCount = 0;
+volatile uint32_t loraPktCount = 0;
 
 httpd_handle_t camera_httpd = NULL; // Port 80 (UI & Real-time Controls)
 httpd_handle_t stream_httpd = NULL; // Port 81 (Dedicated Stream Worker)
@@ -131,10 +133,12 @@ void loraBridgeLoop(void * pvParameters) {
     if (bytesAvail > 0) {
       size_t toRead = (bytesAvail > sizeof(serialBuf)) ? sizeof(serialBuf) : bytesAvail;
       Serial.readBytes(serialBuf, toRead);
+      fcByteCount += toRead;
       
       LoRa.beginPacket();
       LoRa.write(serialBuf, toRead);
       LoRa.endPacket();
+      loraPktCount++;
     }
 
     // 2. Read incoming LoRa packets (Ground Station commands) -> Forward to F405
@@ -278,7 +282,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     <div class="telemetry-badges">
       <div class="badge online"><span class="pulse-dot"></span>Stream :81</div>
       <div class="badge radio" id="loraBadge">LoRa 433 MHz [Core 0]</div>
-      <div class="badge">19200 Baud FC</div>
+      <div class="badge" id="fcBadge">FC Telemetry: 0 B</div>
     </div>
   </div>
 
@@ -579,13 +583,26 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
         .then(data => {
           const badge = document.getElementById('loraBadge');
           if (badge) {
-            badge.innerText = data.lora ? 'LoRa 433 MHz [Armed]' : 'LoRa 433 MHz [Standby]';
+            badge.innerText = data.lora ? 'LoRa [Armed]' : 'LoRa [Standby]';
             badge.className = data.lora ? 'badge online' : 'badge radio';
+          }
+          const fcBadge = document.getElementById('fcBadge');
+          if (fcBadge) {
+            if (data.fcBytes > 1024) {
+              fcBadge.innerText = 'FC: ' + (data.fcBytes / 1024).toFixed(1) + ' KB (' + data.pkts + ' TX)';
+              fcBadge.className = 'badge online';
+            } else if (data.fcBytes > 0) {
+              fcBadge.innerText = 'FC: ' + data.fcBytes + ' B (' + data.pkts + ' TX)';
+              fcBadge.className = 'badge online';
+            } else {
+              fcBadge.innerText = 'FC Telemetry: 0 B';
+              fcBadge.className = 'badge';
+            }
           }
         })
         .catch(() => {});
     }
-    setInterval(pollStatus, 3000);
+    setInterval(pollStatus, 2000);
     pollStatus();
   </script>
 </body>
@@ -717,9 +734,9 @@ static esp_err_t control_handler(httpd_req_t *req) {
 
 // 5. System Status Handler (Port 80)
 static esp_err_t status_handler(httpd_req_t *req) {
-  char json[128];
-  snprintf(json, sizeof(json), "{\"lora\":%s,\"flash\":%d,\"res\":%d}", 
-           loraReady ? "true" : "false", currentFlashDuty, currentFramesize);
+  char json[160];
+  snprintf(json, sizeof(json), "{\"lora\":%s,\"fcBytes\":%u,\"pkts\":%u,\"flash\":%d,\"res\":%d}", 
+           loraReady ? "true" : "false", fcByteCount, loraPktCount, currentFlashDuty, currentFramesize);
   httpd_resp_set_type(req, "application/json");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   return httpd_resp_send(req, json, strlen(json));

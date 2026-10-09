@@ -62,15 +62,24 @@ unsigned long lastDisplayUpdate  = 0;
 unsigned long lastBatCheckTime   = 0;
 bool oledReady = false;
 
+volatile uint32_t totalLoRaPacketsReceived = 0;
+
 // =================== LIGHTWEIGHT MAVLINK PARSER ===================
 // Custom zero-overhead MAVLink v1 / v2 state machine parser.
 // Extracts only essential fields without requiring massive external libraries.
 void parseMavlinkByte(uint8_t c) {
   static uint8_t state = 0;
   static uint8_t payloadLen = 0;
-  static uint8_t msgId = 0;
+  static uint32_t msgId = 0;
   static uint8_t buf[64];
-  static uint8_t bufIdx = 0;
+  static uint16_t bytesRead = 0; // Total payload bytes received (can be > 64)
+  static unsigned long lastByteTime = 0;
+
+  // Timeout protection: If a packet isn't completed within 150ms, reset parser
+  if (state != 0 && (millis() - lastByteTime > 150)) {
+    state = 0;
+  }
+  lastByteTime = millis();
 
   switch (state) {
     case 0: // Search for MAVLink frame start byte
@@ -85,24 +94,26 @@ void parseMavlinkByte(uint8_t c) {
     case 4: state = 5; break;                 // Packet sequence
     case 5: state = 6; break;                 // System ID
     case 6: state = 7; break;                 // Component ID
-    case 7: msgId = c; state = 8; break;      // Message ID Low byte
-    case 8: state = 9; break;                 // Message ID Mid byte
-    case 9: state = 20; bufIdx = 0; break;    // Message ID High byte -> Payload start
+    case 7: msgId = c; state = 8; break;      // Message ID Byte 0
+    case 8: msgId |= ((uint32_t)c << 8); state = 9; break;  // Message ID Byte 1
+    case 9: msgId |= ((uint32_t)c << 16); state = 20; bytesRead = 0; break; // Message ID Byte 2 -> Payload start
 
     // --- MAVLink 1 Framing ---
     case 10: payloadLen = c; state = 11; break; // Payload length
     case 11: state = 12; break;                 // Sequence
     case 12: state = 13; break;                 // System ID
     case 13: state = 14; break;                 // Component ID
-    case 14: msgId = c; state = 20; bufIdx = 0; break; // Message ID -> Payload start
+    case 14: msgId = c; state = 20; bytesRead = 0; break; // Message ID -> Payload start
 
     // --- Payload Extraction ---
     case 20:
-      if (bufIdx < sizeof(buf)) {
-        buf[bufIdx++] = c;
+      // Store first 64 bytes for our essential telemetry decoders
+      if (bytesRead < sizeof(buf)) {
+        buf[bytesRead] = c;
       }
+      bytesRead++;
 
-      if (bufIdx >= payloadLen) {
+      if (bytesRead >= payloadLen) {
         lastTelemetryTime = millis();
 
         // 1. HEARTBEAT (Message #0): Decode ArduCopter Flight Mode
@@ -124,7 +135,6 @@ void parseMavlinkByte(uint8_t c) {
         else if (msgId == 1 && payloadLen >= 31) {
           uint16_t mVolts = buf[14] | (buf[15] << 8);
           droneBatVolts = mVolts / 1000.0;
-          // Approximate curve for 3S LiPo: 10.5V empty (0%) to 12.6V full (100%)
           droneBatPct = constrain((int)((droneBatVolts - 10.5) / (12.6 - 10.5) * 100.0), 0, 100);
         }
         // 3. GLOBAL_POSITION_INT (Message #33): Lat, Lon, and Relative Altitude
@@ -141,9 +151,13 @@ void parseMavlinkByte(uint8_t c) {
           droneSats = buf[29];
         }
 
-        state = 0; // Ready for next packet
+        // Wait for 2 CRC bytes before resetting to state 0
+        state = 30;
       }
       break;
+
+    case 30: state = 31; break; // CRC byte 1
+    case 31: state = 0; break;  // CRC byte 2 -> Ready for next packet!
   }
 }
 
@@ -231,7 +245,8 @@ void updateOLED() {
   } else if (linkAlive) {
     display.print("ACQUIRING GPS FIX");
   } else {
-    display.print("AWAITING AIR UNIT");
+    display.print("WAIT AIR | PKT:");
+    display.print(totalLoRaPacketsReceived);
   }
 
   display.display();
@@ -308,6 +323,7 @@ void loop() {
   // 1. Receive incoming LoRa packets from Drone -> Forward to Phone (BT) + Parse for OLED
   int packetSize = LoRa.parsePacket();
   if (packetSize > 0) {
+    totalLoRaPacketsReceived++;
     while (LoRa.available()) {
       uint8_t b = LoRa.read();
       SerialBT.write(b);   // Send byte to QGroundControl on phone
