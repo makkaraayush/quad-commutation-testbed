@@ -343,16 +343,21 @@ Because LoRa has a narrower bandwidth window than a direct USB cable, we configu
 
 1. Connect the F405 flight controller to Mission Planner via USB.
 2. Go to **Config/Tuning -> Full Parameter List**.
-3. Set the following parameters (UART6 on pads `T6`/`R6` binds to MAVLink Channel 1):
+3. Set the serial port for UART6 (pads `T6`/`R6`):
    - `SERIAL6_PROTOCOL` = **2** (MAVLink2)
    - `SERIAL6_BAUD` = **19** (19200 baud)
-   - `SR1_POSITION` = **2** (GPS position & altitude at 2 Hz)
-   - `SR1_EXT_STAT` = **2** (Battery voltage and arm state at 2 Hz)
-   - `SR1_EXTRA1` = **4** (Attitude / artificial horizon at 4 Hz)
-   - `SR1_EXTRA2` = **2** (Speed and HUD at 2 Hz)
-   - `SR1_RAW_SENS` = **0** (Disables raw IMU vibration data to save bandwidth)
-   - `SR1_RC_CHAN` = **0** (Disables raw servo channel streams)
-4. Click **Write Params** and reboot the flight controller.
+   - Click **Write Params** and reboot the flight controller.
+
+4. After reboot, set the MAVLink telemetry stream rates (ArduPilot uses `MAVx_` in modern firmware or `SRx_` in older builds):
+   - If your parameters show **`MAV2_`** (or **`MAV1_`**):
+     - `MAV2_POSITION` (or `MAV1_POSITION`) = **2** (GPS position & altitude at 2 Hz)
+     - `MAV2_EXT_STAT` (or `MAV1_EXT_STAT`) = **2** (Battery voltage and arm state at 2 Hz)
+     - `MAV2_EXTRA1` (or `MAV1_EXTRA1`) = **4** (Attitude / artificial horizon at 4 Hz)
+     - `MAV2_EXTRA2` (or `MAV1_EXTRA2`) = **2** (Speed and HUD at 2 Hz)
+     - `MAV2_RAW_SENS` (or `MAV1_RAW_SENS`) = **0** (Disables raw IMU vibration data to save 433 MHz bandwidth)
+     - `MAV2_RC_CHAN` (or `MAV1_RC_CHAN`) = **0** (Disables raw servo channel streams)
+   - *(If on older ArduPilot firmware with `SR1_`, apply these exact same numbers to `SR1_POSITION`, `SR1_EXT_STAT`, etc.)*
+5. Click **Write Params**.
 
 ---
 
